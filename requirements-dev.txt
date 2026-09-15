@@ -1,0 +1,10 @@
+# FactoryOps — Development & Testing Dependencies
+# Install with: pip install -r requirements-dev.txt
+# These are NOT required in production.
+
+-r requirements.txt
+
+# Testing
+pytest==8.3.5
+pytest-django==4.9.0
+coverage==7.6.10

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard — FactoryOps{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <div>
+        <h1 style="font-size: 1.875rem; font-weight: 700; margin-bottom: 0.5rem;">Operational Command Center</h1>
+        <p style="color: var(--text-muted);">Real-time status overview and plant metrics.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+        <div class="card">
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Active Factories</div>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-blue);">1</div>
+            <div style="font-size: 0.8rem; color: var(--accent-emerald); margin-top: 0.25rem;">● Online & Operational</div>
+        </div>
+        <div class="card">
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Monitored Machines</div>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--text-main);">0</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Telemetry offline</div>
+        </div>
+        <div class="card">
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">System Health</div>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-emerald);">100%</div>
+            <div style="font-size: 0.8rem; color: var(--accent-emerald); margin-top: 0.25rem;">All modules healthy</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.75rem;">System Initialization Status</h3>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;">
+            FactoryOps Phase 1 Foundation Stabilization complete. Custom User Auth, Factory Domain models, and Modular Monolith structure are active.
+        </p>
+    </div>
+</div>
+{% endblock %}

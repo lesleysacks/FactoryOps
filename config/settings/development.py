@@ -1,13 +1,11 @@
-from .base import *
+"""
+FactoryOps — Development Settings
+Extends base.py. Used when DJANGO_SETTINGS_MODULE=config.settings.development
+(set by manage.py by default).
+"""
 
-DEBUG = True
+from .base import *  # noqa: F401, F403
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
-
-# Use SQLite for quick local development as per your plan
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+# Development overrides — base.py loads DEBUG and ALLOWED_HOSTS from .env
+# No overrides needed here currently; this file exists for future
+# development-specific configuration (e.g. debug toolbar, query logging).
