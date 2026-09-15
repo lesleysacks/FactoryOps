@@ -1,0 +1,19 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtuele omgewing
+.venv/
+env/
+venv/
+ENV/
+
+# Plaaslike databasis (SQLite)
+*.sqlite3
+
+# Omgewingsveranderlikes (Sensitiewe data)
+.env
+
+# Media-oplaaie (Foto's/Bewysstukke)
+media/
