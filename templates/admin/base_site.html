@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | FactoryOps{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <link rel="icon" href="{% static 'img/favicon/favicon.ico' %}" sizes="any">
+    <link rel="icon" href="{% static 'img/favicon/favicon.svg' %}" type="image/svg+xml">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon/favicon-16x16.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon/apple-touch-icon.png' %}">
+    <link rel="stylesheet" href="{% static 'css/admin.css' %}?v=3">
+{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">FactoryOps</a></h1>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

@@ -1,14 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}Server Error (500) — FactoryOps{% endblock %}
+{% block title %}Server error — FactoryOps{% endblock %}
 
 {% block content %}
-<div style="max-width: 500px; margin: 4rem auto; text-align: center;">
-    <div class="card">
-        <h1 style="font-size: 4rem; font-weight: 800; color: var(--accent-rose); margin-bottom: 0.5rem;">500</h1>
-        <h2 style="font-size: 1.25rem; margin-bottom: 1rem;">Internal System Error</h2>
-        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;">An unexpected condition occurred within the operational pipeline.</p>
-        <a href="{% url 'dashboard:home' %}" class="btn btn-primary">Return to Safety</a>
-    </div>
+<div class="card" style="max-width: 500px; margin: 4rem auto; text-align: center;">
+    <h1 style="margin-bottom: 0.5rem;">Something went wrong</h1>
+    <p class="muted" style="margin-bottom: 1.5rem;">FactoryOps could not complete that request. Try again or return to the dashboard.</p>
+    <a href="{% url 'dashboard:home' %}" class="btn btn-primary">Return to dashboard</a>
 </div>
 {% endblock %}

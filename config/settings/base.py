@@ -29,7 +29,12 @@ SECRET_KEY = os.environ['SECRET_KEY']
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "192.168.1.107",
+]
+#[h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +59,9 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.factories',
     'apps.machines',
+    'apps.materials',
+    'apps.production',
+    'apps.orders',
     'apps.shifts',
     'apps.handovers',
     'apps.downtime',
@@ -85,6 +93,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.dashboard.context_processors.navigation',
             ],
         },
     },

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventory — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Inventory</h1>
+        <p>{% if factory %}{{ factory.name }}{% else %}No factory assigned{% endif %}</p>
+    </div>
+
+    <div class="capture-list">
+        <a class="capture-action" href="{% url 'dashboard:stock_count_create' %}">
+            <strong>Record stock count</strong>
+            <span>Opening and closing quantities for a material</span>
+        </a>
+        <a class="capture-action" href="{% url 'dashboard:material_receipt_create' %}">
+            <strong>Record receipt</strong>
+            <span>Material that arrived at the factory</span>
+        </a>
+    </div>
+
+    <div class="card">
+        <h2>Counts waiting for closing</h2>
+        {% if open_stock_counts %}
+        <div class="capture-list">
+            {% for record in open_stock_counts %}
+                <a class="capture-action" href="{% url 'dashboard:stock_count_close' record.pk %}">
+                    <strong>{{ record.material.code }}</strong>
+                    <span>{{ record.recording_date }} · opening {{ record.opening_quantity }}</span>
+                </a>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="empty">No open stock counts.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

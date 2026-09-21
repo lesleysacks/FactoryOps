@@ -1,9 +1,16 @@
 # FactoryOps — Local Development & Setup Guide
 
+v1 pilot documents: [README](../README.md) · [User guide](user-guide.md) · [Pilot playbook](pilot-playbook.md)
+
+
 ## System Requirements
-- Python 3.12+ (or compatible virtual environment)
-- SQLite3 (default local development database)
+- Python 3.12+ (local runtime has also been used with 3.14)
+- SQLite3 (default local / pilot database)
 - Git
+
+Dashboards: http://127.0.0.1:8000 (role home), http://127.0.0.1:8000/admin (capture).
+
+After `createsuperuser`, give the user `role=ADMIN` (createsuperuser already defaults to ADMIN) and assign a factory in Admin so dashboards scope correctly.
 
 ## Initial Environment Setup
 

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}{{ line.name }} — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>{{ line.name }}</h1>
+        <p>{% if line.code %}{{ line.code }}{% endif %}{% if factory %} · {{ factory.name }}{% endif %}</p>
+    </div>
+
+    <div class="card">
+        <h2>Active machines</h2>
+        {% if machines %}
+        <div class="capture-list">
+            {% for machine in machines %}
+                <a class="capture-action" href="{% url 'dashboard:operator_machine' machine.pk %}">
+                    <strong>{{ machine.code }} · {{ machine.name }}</strong>
+                    <span>
+                        {% status_tone machine.status as tone %}
+                        {% include 'partials/badge.html' with label=machine.get_status_display tone=tone %}
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="empty">No active machines on this line.</p>
+        {% endif %}
+    </div>
+
+    {% if can_record_production %}
+    <form method="post" class="card capture-form" novalidate>
+        {% csrf_token %}
+        <h2>Start run</h2>
+        <p class="muted" style="margin-bottom:0.75rem;">Select an active machine on this line. The run starts when you confirm.</p>
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in form %}
+            <div class="field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}
+                    <p class="field-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Start run</button>
+        </div>
+    </form>
+    {% else %}
+        <div class="alert">Production recording is not available for your role.</div>
+    {% endif %}
+
+    <div class="card">
+        <h2>Active runs on this line</h2>
+        {% if active_runs %}
+        <div class="capture-list">
+            {% for run in active_runs %}
+                <a class="capture-action" href="{% url 'dashboard:production_run' run.pk %}">
+                    <strong>{{ run.reference }}</strong>
+                    <span>{% if run.machine %}{{ run.machine.code }}{% endif %}</span>
+                </a>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="empty">No active runs on this line.</p>
+        {% endif %}
+    </div>
+
+    <p><a class="btn btn-ghost" href="{% url 'dashboard:operator_production' %}">Back to production</a></p>
+</div>
+{% endblock %}

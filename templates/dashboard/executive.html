@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}Executive dashboard — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Executive dashboard</h1>
+        <p>Factory totals from {{ metrics.period_start }} to {{ metrics.today }}</p>
+    </div>
+
+    <div class="metric-grid">
+        {% include 'partials/metric.html' with label="Production" value=metrics.output_total tone="success" hint="Output this period" %}
+        {% include 'partials/metric.html' with label="Waste" value=metrics.waste_total tone="danger" hint="Material waste this period" %}
+        {% include 'partials/metric.html' with label="Orders" value=metrics.fulfilled_orders tone="success" hint="Fulfilled orders" %}
+        {% include 'partials/metric.html' with label="Variances" value=metrics.variance_count tone="danger" hint="Significant stock variances" %}
+    </div>
+
+    <div class="metric-grid">
+        {% include 'partials/metric.html' with label="Consumption" value=metrics.consumption_total tone="info" %}
+        {% include 'partials/metric.html' with label="Rejects" value=metrics.reject_total tone="warning" %}
+        {% include 'partials/metric.html' with label="Unfulfilled orders" value=metrics.unfulfilled_orders tone="warning" %}
+    </div>
+
+    <div class="card">
+        <h2>Orders</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Status</th><th>Orders</th></tr></thead>
+            <tbody>
+            {% for status, count in metrics.fulfilment_counts.items %}
+                <tr>
+                    <td>
+                        {% status_tone status as tone %}
+                        {% include 'partials/badge.html' with label=status tone=tone %}
+                    </td>
+                    <td>{{ count }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Variances</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Date</th><th>Factory</th><th>Material</th><th>Variance</th></tr></thead>
+            <tbody>
+            {% for rec in metrics.significant_variances %}
+                <tr>
+                    <td>{{ rec.reconciliation_date }}</td>
+                    <td>{{ rec.factory.name }}</td>
+                    <td>{{ rec.material.code }}</td>
+                    <td>{% include 'partials/badge.html' with label=rec.variance_quantity tone=rec.variance_quantity|variance_tone %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" class="empty">No significant variances in this period.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

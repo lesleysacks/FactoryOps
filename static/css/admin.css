@@ -1,0 +1,81 @@
+/* FactoryOps admin chrome — industrial navy, not Django defaults. */
+
+html {
+    color-scheme: light;
+    --primary: #1e4e8c;
+    --secondary: #0e2340;
+    --accent: #143154;
+    --header-bg: #0e2340;
+    --header-color: #ffffff;
+    --breadcrumbs-bg: #143154;
+    --body-bg: #f3f5f7;
+    --body-fg: #1a2330;
+    --link-fg: #1e4e8c;
+    --hairline-color: #d5dce3;
+    --darkened-bg: #ffffff;
+    --button-bg: #1e4e8c;
+}
+
+#header {
+    background: #0e2340;
+    color: #ffffff;
+}
+
+#branding h1,
+#branding h1 a:link,
+#branding h1 a:visited {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+div.breadcrumbs {
+    background: #143154;
+    color: #d5dce3;
+}
+
+div.breadcrumbs a { color: #ffffff; }
+
+.module h2,
+.module caption,
+.inline-group h2 {
+    background: #143154;
+}
+
+.button.default,
+input[type="submit"].default,
+.submit-row input.default {
+    background: #1e4e8c;
+}
+
+.button.default:hover,
+input[type="submit"].default:hover {
+    background: #183f72;
+}
+
+a:link, a:visited { color: #1e4e8c; }
+
+.object-tools a:link,
+.object-tools a:visited {
+    background: #1e4e8c;
+}
+
+body.login,
+.login #container {
+    background: #f3f5f7;
+}
+
+.login #header {
+    background: #0e2340;
+}
+
+.login #content {
+    background: #ffffff;
+    border: 1px solid #d5dce3;
+}
+
+.login input[type="text"],
+.login input[type="password"] {
+    background: #ffffff;
+    color: #1a2330;
+    border: 1px solid #d5dce3;
+}
