@@ -572,3 +572,227 @@ table.data th {
     .quick-actions .btn { flex: 1 1 100%; }
     .metric-grid { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Login — animated industrial experience
+   Subtle "operations system powering up" intro built with transforms/opacity.
+   All decoration is non-interactive and fully disabled for reduced motion.
+   ========================================================================== */
+
+/* Screen-reader-only helper (keeps the contiguous product phrase available to
+   assistive tech while the visible wordmark is split for hierarchy). */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* The brand panel becomes the positioning + clipping context for the
+   decorative background so nothing can overflow and cause scrolling. */
+.auth-brand { position: relative; overflow: hidden; }
+
+.auth-brand-inner { position: relative; z-index: 1; }
+
+.auth-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Faint control-system grid. */
+.auth-bg-grid {
+    position: absolute;
+    inset: -1px;
+    background-image:
+        linear-gradient(to right, rgba(126, 176, 228, 0.10) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(126, 176, 228, 0.10) 1px, transparent 1px);
+    background-size: 44px 44px;
+    opacity: 0;
+    animation:
+        authGridIn 900ms ease forwards 120ms,
+        authGridPulse 7s ease-in-out infinite 1s;
+}
+
+/* Thin horizontal scan sweeping slowly down the panel. */
+.auth-bg-scan {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 130px;
+    background: linear-gradient(to bottom, rgba(126, 176, 228, 0.14), rgba(126, 176, 228, 0));
+    transform: translateY(-150px);
+    animation: authScan 8s linear infinite 1.4s;
+}
+
+/* Small status nodes that gently pulse. */
+.auth-node {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #7eb0e4;
+    opacity: 0.22;
+    animation: authNodePulse 3.4s ease-in-out infinite;
+}
+
+.auth-node--1 { top: 20%; left: 16%; }
+.auth-node--2 { top: 62%; left: 28%; animation-delay: 0.7s; }
+.auth-node--3 { top: 38%; left: 74%; animation-delay: 1.3s; }
+.auth-node--4 { top: 80%; left: 58%; animation-delay: 1.9s; }
+
+/* Split product wordmark. */
+.auth-product {
+    margin: 0.9rem 0 0.35rem;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.08;
+}
+
+.auth-product-line {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 1.3rem;
+    color: #dbe6f2;
+}
+
+.auth-product-line--accent { color: #7eb0e4; }
+
+/* Intro reveal: elements start hidden then fade/slide into place in sequence.
+   Total sequence completes well under ~1s so controls are usable quickly. */
+.auth-intro {
+    opacity: 0;
+    animation: authFadeUp 500ms ease both;
+}
+
+.auth-intro--mark { animation-delay: 60ms; }
+.auth-intro--title { animation-delay: 150ms; }
+.auth-intro--product1 { animation-delay: 240ms; }
+.auth-intro--product2 { animation-delay: 320ms; }
+.auth-intro--card { animation: authCardIn 520ms ease both 200ms; }
+
+/* Submit button loading state. */
+.auth-submit {
+    position: relative;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.auth-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    margin-left: 0.5rem;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-top-color: #fff;
+    border-radius: 50%;
+}
+
+.auth-submit.is-loading { opacity: 0.94; }
+.auth-submit.is-loading .auth-spinner {
+    display: inline-block;
+    animation: authSpin 0.7s linear infinite;
+}
+
+/* System status row beneath the form. */
+.auth-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.15rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.auth-status .auth-status-dot { margin-right: 0; }
+
+.auth-status-dot {
+    animation: authStatusSettle 900ms ease forwards, authNodePulse 2.6s ease-in-out infinite 900ms;
+}
+
+/* Error emphasis on the card. */
+.auth-card--error { animation: authShake 0.5s ease-in-out 1; }
+
+@keyframes authFadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes authCardIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes authGridIn { to { opacity: 1; } }
+
+@keyframes authGridPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes authScan {
+    0% { transform: translateY(-150px); }
+    100% { transform: translateY(120vh); }
+}
+
+@keyframes authNodePulse {
+    0%, 100% { opacity: 0.18; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.25); }
+}
+
+@keyframes authSpin { to { transform: rotate(360deg); } }
+
+@keyframes authStatusSettle {
+    0% { background: var(--steel); }
+    100% { background: var(--green); }
+}
+
+@keyframes authShake {
+    10%, 90% { transform: translateX(-2px); }
+    20%, 80% { transform: translateX(3px); }
+    30%, 50%, 70% { transform: translateX(-5px); }
+    40%, 60% { transform: translateX(5px); }
+}
+
+@media (max-width: 900px) {
+    /* Keep branding compact on mobile so it does not eat vertical space. */
+    .auth-product { margin: 0.6rem 0 0.25rem; }
+    .auth-product-line { font-size: 1.05rem; }
+    .auth-bg-scan { height: 90px; }
+}
+
+/* Respect user motion preferences: disable all decorative + feedback motion,
+   reveal everything immediately, and keep full functionality. */
+@media (prefers-reduced-motion: reduce) {
+    .auth-intro,
+    .auth-intro--card,
+    .auth-bg-grid,
+    .auth-bg-scan,
+    .auth-node,
+    .auth-status-dot,
+    .auth-card--error,
+    .auth-submit.is-loading .auth-spinner {
+        animation: none !important;
+    }
+
+    .auth-intro,
+    .auth-intro--card {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+
+    .auth-bg-grid { opacity: 1; }
+    .auth-bg-scan { display: none; }
+    .auth-submit.is-loading .auth-spinner { display: none; }
+}
