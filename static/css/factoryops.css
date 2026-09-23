@@ -721,8 +721,14 @@ table.data th {
     animation: authStatusSettle 900ms ease forwards, authNodePulse 2.6s ease-in-out infinite 900ms;
 }
 
-/* Error emphasis on the card. */
-.auth-card--error { animation: authShake 0.5s ease-in-out 1; }
+/* Error emphasis on the card. Re-declares the intro reveal alongside the shake
+   so the card still fades in (and stays visible) instead of the shake clobbering
+   the intro animation on the same element. */
+.auth-card--error {
+    animation:
+        authCardIn 520ms ease both 200ms,
+        authShake 0.5s ease-in-out 1 760ms;
+}
 
 @keyframes authFadeUp {
     from { opacity: 0; transform: translateY(10px); }
