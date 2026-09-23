@@ -3,27 +3,47 @@
 {% block title %}Sign in — FactoryOps{% endblock %}
 
 {% block content %}
-<div class="auth-layout">
+<div class="auth-layout{% if form.errors %} auth-has-error{% endif %}">
     <section class="auth-brand">
-        <div class="brand-mark">FO</div>
-        <h1>FactoryOps</h1>
-        <p>Production &amp; Inventory Intelligence</p>
+        {# Decorative industrial background — subtle, non-interactive, hidden from assistive tech. #}
+        <div class="auth-bg" aria-hidden="true">
+            <div class="auth-bg-grid"></div>
+            <div class="auth-bg-scan"></div>
+            <span class="auth-node auth-node--1"></span>
+            <span class="auth-node auth-node--2"></span>
+            <span class="auth-node auth-node--3"></span>
+            <span class="auth-node auth-node--4"></span>
+        </div>
+
+        <div class="auth-brand-inner">
+            <div class="brand-mark auth-intro auth-intro--mark">FO</div>
+            <h1 class="auth-intro auth-intro--title">FactoryOps</h1>
+
+            {# Visible product wordmark, split for hierarchy. The contiguous phrase is
+               provided to assistive tech (and preserved for behavioural tests) below. #}
+            <p class="auth-product" aria-hidden="true">
+                <span class="auth-product-line auth-intro auth-intro--product1">Production &amp; Inventory</span>
+                <span class="auth-product-line auth-product-line--accent auth-intro auth-intro--product2">Intelligence</span>
+            </p>
+            <p class="auth-tagline sr-only">Production &amp; Inventory Intelligence</p>
+        </div>
     </section>
+
     <section class="auth-panel">
-        <div class="auth-card">
+        <div class="auth-card auth-intro auth-intro--card{% if form.errors %} auth-card--error{% endif %}">
             <h2>Sign in</h2>
             <p class="muted" style="margin-bottom:1.15rem;">Use your factory account to continue.</p>
 
             {% if form.errors %}
-                <div class="alert alert-danger" style="margin-bottom:1rem;">
+                <div class="alert alert-danger auth-alert" role="alert" style="margin-bottom:1rem;">
                     That username or password is not recognised. Try again.
                 </div>
             {% endif %}
 
-            <form method="post" action="{% url 'accounts:login' %}">
+            <form method="post" action="{% url 'accounts:login' %}" data-auth-form>
                 {% csrf_token %}
                 <div class="field">
-                    <label for="id_username">Username</label>
+                    <label for="id_username">Username or Employee ID</label>
                     <input type="text" name="username" id="id_username" required autocomplete="username" placeholder="Enter your username" {% if form.username.value %}value="{{ form.username.value }}"{% endif %}>
                 </div>
                 <div class="field">
@@ -31,9 +51,48 @@
                     <input type="password" name="password" id="id_password" required autocomplete="current-password" placeholder="Enter your password">
                 </div>
                 <input type="hidden" name="next" value="{{ next }}">
-                <button type="submit" class="btn btn-primary auth-submit">Sign in</button>
+                <button type="submit" class="btn btn-primary auth-submit" data-auth-submit>
+                    <span class="auth-submit-label" data-auth-submit-label>Sign in</span>
+                    <span class="auth-spinner" aria-hidden="true"></span>
+                </button>
             </form>
+
+            <p class="auth-status" role="status" aria-live="polite" data-auth-status>
+                <span class="traffic success auth-status-dot" data-auth-status-dot aria-hidden="true"></span>
+                <span class="auth-status-text" data-auth-status-text>System ready</span>
+            </p>
         </div>
     </section>
 </div>
+
+<script>
+(function () {
+    var form = document.querySelector('[data-auth-form]');
+    if (!form) { return; }
+
+    var button = form.querySelector('[data-auth-submit]');
+    var label = form.querySelector('[data-auth-submit-label]');
+    var statusText = document.querySelector('[data-auth-status-text]');
+    var statusDot = document.querySelector('[data-auth-status-dot]');
+    var submitted = false;
+
+    // Presentation only. The server remains authoritative for authentication;
+    // this never prevents or fakes submission.
+    form.addEventListener('submit', function () {
+        if (submitted) { return; }
+        submitted = true;
+
+        if (button) {
+            button.classList.add('is-loading');
+            button.setAttribute('aria-busy', 'true');
+        }
+        if (label) { label.textContent = 'Authenticating...'; }
+        if (statusText) { statusText.textContent = 'Authenticating...'; }
+        if (statusDot) {
+            statusDot.classList.remove('success');
+            statusDot.classList.add('info');
+        }
+    });
+}());
+</script>
 {% endblock %}
