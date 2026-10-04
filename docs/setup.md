@@ -1,64 +1,117 @@
 # FactoryOps — Local Development & Setup Guide
 
-v1 pilot documents: [README](../README.md) · [User guide](user-guide.md) · [Pilot playbook](pilot-playbook.md)
+Companion docs: [README](../README.md) · [User guide](user-guide.md) · [Pilot playbook](pilot-playbook.md) · [Architecture](architecture.md)
 
+This guide must stay consistent with the README environment rules: env-driven `SECRET_KEY` / `ALLOWED_HOSTS`, no hardcoded LAN IPs, no `ALLOWED_HOSTS=*`.
 
 ## System Requirements
-- Python 3.12+ (local runtime has also been used with 3.14)
+
+- Python 3.12+ (local runtime has also been used with newer 3.x)
 - SQLite3 (default local / pilot database)
 - Git
 
-Dashboards: http://127.0.0.1:8000 (role home), http://127.0.0.1:8000/admin (capture).
+After install:
 
-After `createsuperuser`, give the user `role=ADMIN` (createsuperuser already defaults to ADMIN) and assign a factory in Admin so dashboards scope correctly.
+- Role home: http://127.0.0.1:8000  
+- Admin: http://127.0.0.1:8000/admin  
+
+After `createsuperuser`, the user defaults to `role=ADMIN`. Assign a factory in Admin so dashboards scope correctly.
 
 ## Initial Environment Setup
 
-### 1. Clone & Environment Configuration
-```bash
-git clone <repository-url>
+### 1. Clone
+
+```powershell
+git clone https://github.com/lesleysacks/FactoryOps.git
 cd FactoryOps
 ```
 
-Copy the template environment file:
-```bash
-cp .env.example .env
-```
-*(On Windows PowerShell: `Copy-Item .env.example .env`)*
+### 2. Virtual environment
 
-### 2. Activate Virtual Environment
-```bash
-# Windows PowerShell
+```powershell
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# Linux / macOS
-source .venv/bin/activate
 ```
 
-### 3. Install Dependencies
-```bash
+Linux / macOS: `python3 -m venv .venv` then `source .venv/bin/activate`.
+
+### 3. Dependencies
+
+```powershell
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
 
-### 4. Database Migrations
-```bash
-python manage.py migrate
+### 4. Environment file
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-### 5. Create Administrator Account
-```bash
+Linux / macOS: `cp .env.example .env`.
+
+Generate a secret key:
+
+```powershell
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+Edit `.env` (project root, next to `manage.py`):
+
+```env
+SECRET_KEY=<paste-generated-value>
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+```
+
+For LAN / factory-PC access, append this machine’s IPv4 (no port, no quotes, no brackets):
+
+```env
+ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.105
+```
+
+Discover the IP with `ipconfig` (Windows), `ip addr` (Linux), or `ifconfig` (macOS). Restart the server after any `.env` change.
+
+Never commit `.env`. Do not set `ALLOWED_HOSTS=*`.
+
+### 5. Database
+
+```powershell
+python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 6. Run System Check & Test Suite
-```bash
+### 6. System check & tests
+
+```powershell
 python manage.py check
-pytest
+python manage.py makemigrations --check
+python -m pytest
 ```
 
-### 7. Launch Development Server
-```bash
+Note: `makemigrations --check` may fail only on pre-existing `accounts` user-manager drift. Leave that alone unless an accounts cleanup is scheduled (see [system-health.md](system-health.md)).
+
+### 7. Run locally
+
+```powershell
 python manage.py runserver
 ```
-Navigate to `http://127.0.0.1:8000` for the Operational Dashboard and `http://127.0.0.1:8000/admin` for Django Admin.
+
+### 8. LAN / factory-PC testing
+
+```powershell
+python manage.py runserver 0.0.0.0:8000
+```
+
+Open `http://<lan-ip>:8000` from another device on the same network. If you see `DisallowedHost`, the LAN IP is missing from `ALLOWED_HOSTS` in `.env`.
+
+## Configuration rules (summary)
+
+1. `SECRET_KEY` from environment only  
+2. `ALLOWED_HOSTS` from comma-separated environment value only  
+3. No LAN IP literals in Python settings  
+4. No `ALLOWED_HOSTS=*`  
+5. `.env` gitignored; `.env.example` is the safe template  
+
+More detail: [README — Environment Configuration](../README.md#environment-configuration).

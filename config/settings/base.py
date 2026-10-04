@@ -29,12 +29,11 @@ SECRET_KEY = os.environ['SECRET_KEY']
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
+# Comma-separated hostnames from the environment (no hardcoded LAN IPs).
+# Example: ALLOWED_HOSTS=localhost,127.0.0.1,<your-lan-ip>
 ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "192.168.1.107",
+    h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()
 ]
-#[h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 
 # ---------------------------------------------------------------------------

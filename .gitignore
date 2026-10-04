@@ -3,17 +3,22 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtuele omgewing
+# Virtual environments
 .venv/
 env/
 venv/
 ENV/
 
-# Plaaslike databasis (SQLite)
+# Local database (SQLite)
 *.sqlite3
+db.sqlite3
 
-# Omgewingsveranderlikes (Sensitiewe data)
+# Environment variables (secrets — never commit)
 .env
 
-# Media-oplaaie (Foto's/Bewysstukke)
+# Media uploads (photos / evidence)
 media/
+
+# Test / coverage artefacts
+.pytest_cache/
+.coverage
