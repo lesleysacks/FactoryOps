@@ -11,6 +11,8 @@ Required environment variables (set in .env or host environment):
 
 from pathlib import Path
 import os
+
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # ---------------------------------------------------------------------------
@@ -25,6 +27,16 @@ load_dotenv(BASE_DIR / '.env')
 # ---------------------------------------------------------------------------
 # Security — loaded from environment, never hardcoded
 # ---------------------------------------------------------------------------
+# Kept as an environment lookup with no default. An empty value fails here,
+# before Django can generate a new key on startup.
+if not os.environ.get('SECRET_KEY', '').strip():
+    raise ImproperlyConfigured(
+        'SECRET_KEY is missing or empty. Copy .env.example to .env and generate a '
+        'key with: python -c "from django.core.management.utils import '
+        'get_random_secret_key; print(get_random_secret_key())". Store that key '
+        'only in the environment file, outside source control. FactoryOps does '
+        'not generate a new SECRET_KEY on each start.'
+    )
 SECRET_KEY = os.environ['SECRET_KEY']
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
@@ -66,6 +78,7 @@ INSTALLED_APPS = [
     'apps.downtime',
     'apps.dashboard',
     'apps.reports',
+    'apps.ops.apps.OpsConfig',
 ]
 
 MIDDLEWARE = [

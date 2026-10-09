@@ -12,6 +12,8 @@ from django.urls import include, path
 from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET
 
+from config.views import health, protected_media
+
 handler403 = 'django.views.defaults.permission_denied'
 
 admin.site.site_header = 'FactoryOps Administration'
@@ -29,6 +31,7 @@ def favicon(request):
 
 
 urlpatterns = [
+    path('health/', health, name='health'),
     path('favicon.ico', favicon, name='favicon'),
     path('admin/', admin.site.urls),
     path('accounts/', include('apps.accounts.urls', namespace='accounts')),
@@ -39,3 +42,7 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+else:
+    urlpatterns += [
+        path('media/<path:path>', protected_media, name='protected_media'),
+    ]
