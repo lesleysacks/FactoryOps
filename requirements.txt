@@ -12,3 +12,8 @@ python-dotenv==1.2.3
 
 # Timezone data (required on Windows)
 tzdata==2026.3
+
+# Windows-friendly production server and static files.
+# Waitress is a pure-Python WSGI server. WhiteNoise serves collected static files.
+waitress==3.0.2
+whitenoise==6.9.0
