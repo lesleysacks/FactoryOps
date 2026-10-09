@@ -41,7 +41,7 @@ Treat these as direction, not delivery promises:
 
 - Harden pilot feedback (operator capture, reconciliation UX)
 - Keep stub apps dormant until a real factory need appears
-- Production hardening (hosting, `DEBUG=False`, secrets, PostgreSQL if operations choose it)
+- Production hardening for a Windows factory PC is documented below (Waitress, startup tasks, backups). The database stays SQLite. PostgreSQL is not configured.
 - Future domains only when pilot data proves the need (QC records, photos, exports) — not before
 
 See also [docs/system-health.md](docs/system-health.md) and [docs/pilot-playbook.md](docs/pilot-playbook.md).
@@ -226,7 +226,9 @@ Default settings module: `config.settings.development` (set in `manage.py`).
 
 ---
 
-## LAN / Factory-PC Testing
+## LAN / Factory-PC Testing (development server only)
+
+This section uses Django's development server. Do **not** use it as the factory production process. The production procedure is [Factory PC deployment](#factory-pc-deployment-windows).
 
 Bind the dev server to all interfaces:
 
@@ -349,6 +351,291 @@ Use [docs/pilot-playbook.md](docs/pilot-playbook.md) for week-0 setup and the da
 **No-go** if you need day-one QC sign-off, bin-level warehousing, or invoices inside this system.
 
 ---
+
+## Factory PC deployment (Windows)
+
+This is the production procedure for a dedicated factory PC. It is separate from `python manage.py runserver`.
+
+The application has **not** been installed on a factory PC from this repository checkout. Install it on the target Windows computer using the steps below. Python tests for configuration, health, backup, and restore run in development; the PowerShell scripts themselves run only on Windows.
+
+### 1. Supported operating system and prerequisites
+
+- Windows 10 or Windows 11, 64-bit, on the factory PC.
+- Python 3.12 or newer, with the `py` launcher enabled. The pinned Django release is in `requirements.txt`.
+- PowerShell 5.1 (included with Windows). Run the installer from an elevated PowerShell.
+- Microsoft Edge (included with Windows 10/11) for the login window.
+- No internet connection is required after dependencies have been installed. Templates and static files do not load remote assets.
+- The first `pip install` needs either internet or a wheelhouse prepared on another machine. Daily operation does not call GitHub or other external services.
+
+Development commands (`runserver`, `pytest`) stay on a developer machine. Do not use them as the factory server.
+
+### 2. Installation on a clean PC
+
+Default directory: `C:\FactoryOps`. Pass `-InstallRoot` to use another path.
+
+From an elevated PowerShell, in the extracted FactoryOps folder:
+
+```powershell
+Set-Location C:\path\to\FactoryOps
+powershell -NoProfile -ExecutionPolicy Bypass -File .\deploy\windows\Install-FactoryOps.ps1 -InstallRoot C:\FactoryOps -DesktopUser '.\FactoryOperator' -LanAddress '10.0.0.20' -ConfigureFirewall
+```
+
+Replace `10.0.0.20` with this PC's Ethernet IPv4 address (`ipconfig`). Replace `.\FactoryOperator` with the Windows account that should see the login window. Omit `-DesktopUser` if you will open the window from a shortcut instead.
+
+The installer:
+
+1. Checks that Windows and Python 3.12+ are present.
+2. Copies the application to `C:\FactoryOps\app` (it does not copy `.env`, SQLite files, or media).
+3. Creates `C:\FactoryOps\venv` if it is missing and installs `requirements.txt`.
+4. Writes `C:\FactoryOps\config\factoryops.env` only when that file is absent.
+5. Validates production settings, runs `migrate` once, runs `collectstatic`, and runs `check --deploy`.
+6. Registers Task Scheduler jobs and an optional private-network firewall rule.
+
+Re-running the installer does not rotate `SECRET_KEY`, delete `C:\FactoryOps\data`, or replace media.
+
+Create the first administrator yourself. The password is not stored in a script:
+
+```powershell
+cd C:\FactoryOps\app
+..\venv\Scripts\python.exe manage.py createsuperuser
+```
+
+`createsuperuser` assigns the `ADMIN` role. In Admin, assign a factory to each user. Nobody is logged in automatically.
+
+### 3. First-time configuration
+
+Production settings are `config.settings.production`. `manage.py` still defaults to development settings, so the factory scripts set `DJANGO_SETTINGS_MODULE` themselves.
+
+`C:\FactoryOps\config\factoryops.env` holds hosts, paths, and the secret. `C:\FactoryOps\config\factoryops.public` holds only the port and bind address so the desktop shortcut can read them without opening the secret file.
+
+| Path | Contents |
+|---|---|
+| `C:\FactoryOps\data\db.sqlite3` | SQLite database |
+| `C:\FactoryOps\data\media` | Uploaded files |
+| `C:\FactoryOps\staticfiles` | Collected static files |
+| `C:\FactoryOps\logs` | Application and backup logs |
+| `C:\FactoryOps\backups` | Dated verified backups |
+
+The database engine is still SQLite. `FACTORYOPS_SQLITE_PATH` only changes the file location. Do not point it at a PostgreSQL URL.
+
+### 4. Secure SECRET_KEY creation and storage
+
+The installer generates one key with Django's `get_random_secret_key()` and writes it into `factoryops.env`. Later starts and reinstalls keep that key. FactoryOps does not generate a new key on each start.
+
+The installer then limits the file to SYSTEM (read) and Administrators (full control). It does not print the key. Do not commit the file, copy it into the application folder, or paste it into a shortcut.
+
+To rotate the key later, stop the server, edit `SECRET_KEY` in `factoryops.env` by hand, and start the server again. Existing sessions become invalid. There is no automatic rotation.
+
+If the key is missing, still the placeholder, shorter than 50 characters, or `DEBUG=True`, production settings refuse to start and the error is written to `C:\FactoryOps\logs\server-console.log`.
+
+### 5. Database initialization and migration
+
+`Install-FactoryOps.ps1` and `Update-FactoryOps.ps1` run:
+
+```powershell
+..\venv\Scripts\python.exe manage.py migrate --noinput
+```
+
+`Start-FactoryOps.ps1` does not migrate. An ordinary restart or Windows reboot does not run migrations and does not delete or overwrite `db.sqlite3`.
+
+### 6. Starting and stopping FactoryOps
+
+Production server (Waitress, not `runserver`):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Start-FactoryOps.ps1 -InstallRoot C:\FactoryOps
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Stop-FactoryOps.ps1 -InstallRoot C:\FactoryOps
+```
+
+If the health check at `http://127.0.0.1:8000/health/` already returns `{"status": "ok"}`, start does nothing. Stop ends the scheduled task and the recorded process tree. It does not delete the database.
+
+Health JSON is only `ok` or `unavailable`. It does not include secrets, tracebacks, or operational records.
+
+### 7. Automatic startup after a Windows restart
+
+The server is a Task Scheduler job named `FactoryOps Server`:
+
+- Trigger: at startup, as SYSTEM, including when nobody is logged on.
+- If Waitress exits, Task Scheduler starts it again after one minute, up to 999 times.
+- A second start is ignored while one is running.
+- The task does not open a console window.
+
+A daily `FactoryOps Backup` task runs at 02:00 as SYSTEM.
+
+This is Task Scheduler rather than a Windows Service. A service wrapper such as NSSM would be another binary to install and another thing for the plant to debug. Task Scheduler is built in, shows the last run result, and can restart a failed process. The limitation is that a scheduled task is easier for a local administrator to disable than a service, and "run whether or not a user is logged on" does not provide a desktop for the browser. The browser is a separate logon task.
+
+### 8. Opening the desktop interface
+
+`FactoryOps Browser` runs at logon for `-DesktopUser` and calls `Open-FactoryOps.ps1`.
+
+- It waits until `/health/` reports ok, up to 120 seconds.
+- It then opens Edge in an application window at `http://127.0.0.1:8000/accounts/login/`.
+- That is the existing login page. Authentication and role checks are unchanged.
+- It does not pass a username or password.
+- If the login window is already open, or the launcher is already running, it does not open another window.
+- A supervisor can open `FactoryOps` from the desktop shortcut after closing the window. The shortcut does not require a code change.
+- If the server never becomes healthy, a message points at `C:\FactoryOps\logs\factoryops.log`. The server process does not stop when the browser closes.
+
+Automatic Windows sign-in is **not** enabled by these scripts. If the plant wants the login window after a reboot without anyone typing a Windows password, a local administrator can turn on Windows AutoLogon for the factory account. That stores a Windows password in the registry and lets anyone who can reach the keyboard use that Windows session. FactoryOps itself still shows its own login page. Prefer a normal Windows sign-in unless the floor cannot staff the PC.
+
+### 9. LAN access from other devices
+
+The server listens on `FACTORYOPS_BIND` (default `0.0.0.0`, TCP port 8000) so other devices on the factory network can connect. `0.0.0.0` means every network interface on this PC. It does not publish the PC to the internet. Do not forward port 8000 on the router.
+
+Find the address on the factory PC:
+
+```powershell
+ipconfig
+```
+
+Use the IPv4 address of the plant Ethernet adapter. On another device on the same network, open `http://<that-address>:8000/accounts/login/`.
+
+Users still sign in. Roles and factory scoping are unchanged.
+
+When the address is known at install time, pass `-LanAddress`. Later:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Set-FactoryOpsLanAddress.ps1 -InstallRoot C:\FactoryOps -LanAddress '10.0.0.20'
+```
+
+That updates `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` and restarts the server. It does not change `SECRET_KEY`. `localhost`, `127.0.0.1`, and the computer name stay on the list. A wildcard host is rejected.
+
+### 10. Firewall and network requirements
+
+With `-ConfigureFirewall`, the installer adds a rule named `FactoryOps LAN` for inbound TCP 8000 on the Private and Domain profiles only. The Public profile is not opened.
+
+```powershell
+netsh advfirewall firewall show rule name="FactoryOps LAN"
+```
+
+Ask the network administrator for a DHCP reservation for this PC's MAC address so the LAN address stays stable. If DHCP gives the PC a new address, phones and tablets that bookmarked the old address will fail `ALLOWED_HOSTS` until you run `Set-FactoryOpsLanAddress.ps1` with the new address. Using the computer name in `ALLOWED_HOSTS` (the installer adds it) avoids that only when clients browse to the name rather than the raw IP.
+
+Do not expose this HTTP server to the public internet. `FACTORYOPS_HTTPS=True` turns on HTTPS redirects and secure cookies, but this package does not obtain or install a certificate. Leave HTTPS off on an isolated LAN.
+
+`check --deploy` may warn that HSTS and secure cookies are off. Those warnings are expected while the factory uses plain HTTP on the LAN. Do not silence them by setting `ALLOWED_HOSTS=*`.
+
+### 11. Logs and troubleshooting
+
+| File | What it is |
+|---|---|
+| `C:\FactoryOps\logs\factoryops.log` | Rotating application log (5 MB, five backups) |
+| `C:\FactoryOps\logs\server-console.log` | Waitress console and settings errors |
+| `C:\FactoryOps\logs\backup.log` | Backup and restore success or failure |
+
+```powershell
+Get-Content C:\FactoryOps\logs\factoryops.log -Tail 50
+schtasks /Query /TN "FactoryOps Server" /V /FO LIST
+```
+
+| Symptom | What to do |
+|---|---|
+| Login window says FactoryOps did not become ready | Read `server-console.log`. Confirm the FactoryOps Server task is running. |
+| `DisallowedHost` from a phone | Add that exact IP with `Set-FactoryOpsLanAddress.ps1`. |
+| Production settings will not start | `DEBUG` is true, the secret is still the placeholder, or `ALLOWED_HOSTS` is empty or `*`. |
+| Page on this PC works, phone does not | Private firewall rule, same subnet, no Wi-Fi client isolation. |
+| Users see a login page, not a traceback | Expected. `DEBUG` is false. Details are in the log, not the browser. |
+
+### 12. Database and media backups
+
+The daily task runs `Backup-FactoryOps.ps1`, which runs:
+
+```powershell
+cd C:\FactoryOps\app
+..\venv\Scripts\python.exe manage.py backup_factoryops
+```
+
+The copy uses SQLite's backup API, not a raw copy of `db.sqlite3` while Waitress may be writing. Media files are copied beside it. The environment file is stored only as `factoryops.env.redacted`, with secret-like values replaced by `REDACTED`. Keep the real `factoryops.env` on the PC and in a place only administrators can read. It is not put in the backup folder.
+
+Each backup is a folder `C:\FactoryOps\backups\FactoryOps-<timestamp>\` with `manifest.json`. The backup is marked verified only after the SQLite integrity check and file hashes match. If verification fails, that attempt is removed and older verified backups are left alone. Retention defaults to 14 verified backups (`FACTORYOPS_BACKUP_RETENTION`). Unverified folders are not treated as restorable.
+
+A manual backup:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Backup-FactoryOps.ps1 -InstallRoot C:\FactoryOps
+```
+
+### 13. Restore testing
+
+Test a restore without touching the live database:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Test-FactoryOpsRestore.ps1 -InstallRoot C:\FactoryOps -Backup 'C:\FactoryOps\backups\FactoryOps-<timestamp>'
+```
+
+That writes a temporary folder under `%TEMP%` and refuses to replace the live file. Inspect the temporary `db.sqlite3` if you need to, then delete the temp folder.
+
+Replace live data only while the server is stopped, and only with the confirmation text:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Stop-FactoryOps.ps1 -InstallRoot C:\FactoryOps
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Restore-FactoryOps.ps1 -InstallRoot C:\FactoryOps -Backup 'C:\FactoryOps\backups\FactoryOps-<timestamp>' -Target 'C:\FactoryOps\data' -ReplaceLive -ConfirmReplace 'REPLACE LIVE DATA'
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Start-FactoryOps.ps1 -InstallRoot C:\FactoryOps
+```
+
+There is no separate PostgreSQL restore path because this deployment stays on SQLite.
+
+### 14. Updating FactoryOps safely
+
+On the factory PC, from an elevated PowerShell, with the new source available locally (a USB copy is enough; the update does not contact GitHub):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Update-FactoryOps.ps1 -InstallRoot C:\FactoryOps -Source 'D:\FactoryOps'
+```
+
+The script verifies a backup first and stops if that backup fails. It then stores the current code under `C:\FactoryOps\releases\`, copies the new code, installs dependencies, migrates, collects static files, and starts the server. It does not delete the database.
+
+### 15. Rolling back an unsuccessful update
+
+Code only (database stays as it is):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Rollback-FactoryOps.ps1 -InstallRoot C:\FactoryOps -Release 'C:\FactoryOps\releases\app-<timestamp>'
+```
+
+If the failed update also applied migrations, put back the pre-update database as well. Use the backup the update created, after you have tested it with `Test-FactoryOpsRestore.ps1`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Rollback-FactoryOps.ps1 -InstallRoot C:\FactoryOps -Release 'C:\FactoryOps\releases\app-<timestamp>' -RestoreDatabase -Backup 'C:\FactoryOps\backups\FactoryOps-<timestamp>' -ConfirmReplace 'REPLACE LIVE DATA'
+```
+
+### 16. Uninstalling without deleting production data
+
+Stop and remove the scheduled tasks. Data, backups, logs, and `factoryops.env` stay:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Disable-FactoryOps.ps1 -InstallRoot C:\FactoryOps
+```
+
+Remove the virtual environment and program files, still keeping data:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\FactoryOps\app\deploy\windows\Uninstall-FactoryOps.ps1 -InstallRoot C:\FactoryOps -RemoveProgram -RemoveFirewall
+```
+
+Deleting the database, media, and backups requires `-DeleteData` and `-ConfirmDeleteData 'DELETE FACTORY DATA'`. Do not use that during a normal uninstall.
+
+### Manual steps on the factory PC
+
+These are not done by the repository tests:
+
+1. Install Windows updates and Python 3.12+ on the factory PC.
+2. Copy this project onto the PC (USB or internal share). Do not copy a developer `.env` or a developer `db.sqlite3`.
+3. Run `Install-FactoryOps.ps1` from an elevated PowerShell with the LAN address, desktop user, and firewall switch.
+4. Run `createsuperuser`, then assign factories and roles in Admin.
+5. Confirm `http://127.0.0.1:8000/health/` returns `{"status": "ok"}`.
+6. Sign in through the login window and open one operator page and one supervisor page.
+7. From another device, open the LAN URL and sign in.
+8. Run `Backup-FactoryOps.ps1`, then `Test-FactoryOpsRestore.ps1`, and confirm the live application still has its current records.
+9. Reboot the PC and confirm the server is healthy before anyone signs in to Windows, then confirm the login window opens for the desktop user.
+10. Ask the network administrator for a DHCP reservation. Do not forward port 8000 to the internet.
+
+### Chosen server and startup approach
+
+- Server: Waitress (`waitress==3.0.2`), bound from `FACTORYOPS_BIND` and `FACTORYOPS_PORT`.
+- Static files: WhiteNoise after `collectstatic`.
+- Uploaded files: the existing media directory, served only to signed-in users when `DEBUG` is false.
+- Process manager: Task Scheduler, documented above.
+- Database: existing SQLite configuration, file path overridable, engine unchanged.
 
 ## Troubleshooting FAQ
 

@@ -70,6 +70,10 @@ Date windows use **UTC calendar dates** (`TIME_ZONE=UTC`).
 - `AUTH_USER_MODEL = accounts.User`
 - SQLite for local / pilot unless operations later choose PostgreSQL
 
+## Factory PC deployment
+
+Production on a dedicated Windows PC is a process and configuration layer around this same monolith. It does not add a service, a second database, or a new domain model. Settings live in `config/settings/production.py`. Waitress serves the existing WSGI application. Task Scheduler starts that process at boot and opens the existing login page in a separate logon task. Backups use the SQLite backup API and the media directory. See [ADR-003](decisions/ADR-003-windows-local-deployment.md) and the factory deployment guide in the README.
+
 ## Out of architecture (v1)
 
 Invoicing, pricing, CRM, freight, procurement, accounting, warehouse transfers, bin locations, QC workflows, photos, Excel export, AI.
