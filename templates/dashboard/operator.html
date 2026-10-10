@@ -28,14 +28,18 @@
             </div>
             <div>
                 <h3 class="subhead">Machine</h3>
-                {% for machine in machines %}
-                    <p>
-                        <a href="{% url 'dashboard:operator_machine' machine.pk %}">{{ machine.code }}</a>
-                        · {{ machine.name }}
-                    </p>
-                {% empty %}
-                    <p class="empty">No machines are available on your lines.</p>
-                {% endfor %}
+                {% if can_record_production %}
+                    {% for machine in machines %}
+                        <p>
+                            <a href="{% url 'dashboard:operator_machine' machine.pk %}">{{ machine.code }}</a>
+                            · {{ machine.name }}
+                        </p>
+                    {% empty %}
+                        <p class="empty">No machines are available on your lines.</p>
+                    {% endfor %}
+                {% else %}
+                    <p class="empty">Production machines are outside this responsibility.</p>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -55,12 +59,15 @@
             {% if can_record_production %}
             <a class="btn btn-primary" href="{% url 'dashboard:operator_production' %}">Start production</a>
             {% endif %}
+            {% if can_record_inventory %}
             <a class="btn btn-primary" href="{% url 'dashboard:stock_count_create' %}">Record stock count</a>
             <a class="btn btn-primary" href="{% url 'dashboard:material_receipt_create' %}">Record receipt</a>
+            {% endif %}
         </div>
     </div>
 
     <div class="section-grid">
+        {% if can_record_production %}
         <div class="card">
             <h2>Today's production runs</h2>
             <div class="table-wrap">
@@ -85,6 +92,7 @@
             {% endif %}
             </div>
         </div>
+        {% endif %}
 
         <div class="card">
             <h2>Today's tasks</h2>
@@ -93,6 +101,7 @@
             <table class="data">
                 <thead><tr><th>Type</th><th>Reference</th><th>Detail</th></tr></thead>
                 <tbody>
+                {% if can_record_production %}
                 {% for run in metrics.open_runs %}
                     <tr>
                         <td>Production run</td>
@@ -104,6 +113,8 @@
                     </tr>
                 {% empty %}
                 {% endfor %}
+                {% endif %}
+                {% if can_record_inventory %}
                 {% for record in metrics.open_stock_counts %}
                     <tr>
                         <td>Stock count</td>
@@ -113,6 +124,7 @@
                         </td>
                     </tr>
                 {% endfor %}
+                {% endif %}
                 </tbody>
             </table>
             </div>

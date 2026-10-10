@@ -24,6 +24,7 @@ from apps.production.state_machine import (
     transition,
 )
 from apps.production.variance import expected_individual_units, variance_for_run
+from apps.production.workflow import current_material_states_for
 
 from .forms import (
     AcceptVarianceForm,
@@ -34,13 +35,13 @@ from .forms import (
 )
 from .helpers import crumbs
 from .permissions import (
-    PRODUCTION_ROLES,
     QC_ROLES,
     SUPERVISOR_ROLES,
     can_perform_qc,
-    can_record_production,
+    production_required,
     role_required,
 )
+
 from .production_views import _page, _validation_message
 from .querysets import production_runs_for, runs_in_stage_for, user_factory
 
@@ -49,7 +50,7 @@ def _run_for(user, pk):
     return get_object_or_404(production_runs_for(user), pk=pk)
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_http_methods(['GET', 'POST'])
 def configure_run(request):
     form = RunConfigurationForm(
@@ -97,28 +98,28 @@ def configure_run(request):
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_POST
 def start_controlled_run(request, pk):
     run = _run_for(request.user, pk)
     return _transition_or_redirect(request, run, ProductionStage.PRODUCTION_ACTIVE)
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_POST
 def mark_output_recorded(request, pk):
     run = _run_for(request.user, pk)
     return _transition_or_redirect(request, run, ProductionStage.OUTPUT_RECORDED)
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_POST
 def submit_for_qc(request, pk):
     run = _run_for(request.user, pk)
     return _transition_or_redirect(request, run, ProductionStage.QC_REQUIRED)
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_POST
 def cancel_controlled_run(request, pk):
     run = _run_for(request.user, pk)
@@ -205,7 +206,7 @@ def qc_verification(request, pk):
             if action == 'complete':
                 complete_qc(request.user, run)
                 messages.success(request, f'QC completed for {run.reference}.')
-                return redirect('dashboard:production_run', pk=run.pk)
+                return redirect('dashboard:qc_queue')
         except ValidationError as exc:
             messages.error(request, _validation_message(exc))
             if action == 'details':
@@ -213,6 +214,10 @@ def qc_verification(request, pk):
             elif action == 'photo':
                 photo_form.add_error(None, _validation_message(exc))
     photos = list(verification.photos.all()) if verification is not None else []
+    outputs = list(run.outputs.select_related('finished_good').order_by('recorded_at'))
+    consumptions = list(
+        run.material_consumptions.select_related('material', 'batch').order_by('consumed_at')
+    )
     return render(request, 'dashboard/qc_verification.html', {
         **_page(
             f'QC {run.reference}',
@@ -232,6 +237,9 @@ def qc_verification(request, pk):
         'expected': expected_individual_units(run),
         'gate': gate_requirements(run, ProductionStage.QC_COMPLETE),
         'can_edit': run.stage == ProductionStage.QC_REQUIRED,
+        'outputs': outputs,
+        'consumptions': consumptions,
+        'material_states': current_material_states_for(run),
     })
 
 
