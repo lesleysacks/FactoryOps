@@ -335,6 +335,22 @@ def test_operator_http_cannot_open_qc(client, operator, factory):
     assert response.status_code == 403
 
 
+def test_qc_form_keeps_saved_variant(client, operator, qc_user, catalog, machine):
+    run = _submit(operator, catalog, machine, Decimal('3400'))
+    client.force_login(qc_user)
+    response = client.post(reverse('dashboard:qc_verification', args=[run.pk]), {
+        'form': 'details',
+        'variant': catalog['variant'].pk,
+        'packaging': catalog['packaging'].pk,
+        'qc_verified_quantity': '3000',
+    })
+    assert response.status_code == 302
+    page = client.get(reverse('dashboard:qc_verification', args=[run.pk]))
+    html = page.content.decode()
+    assert f'value="{catalog["variant"].pk}" selected' in html
+    assert '3000' in html
+
+
 def test_qc_http_cannot_configure(client, qc_user):
     client.force_login(qc_user)
     response = client.get(reverse('dashboard:configure_run'))

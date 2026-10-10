@@ -158,9 +158,23 @@ def qc_verification(request, pk):
         messages.error(request, 'This run is not waiting for QC.')
         return redirect('dashboard:qc_queue')
     verification = _verification(run)
+    details_bound = request.method == 'POST' and request.POST.get('form') == 'details'
+    initial = {}
+    if verification is not None and verification.variant_id:
+        initial = {
+            'variant': verification.variant_id,
+            'packaging': verification.packaging_id,
+            'qc_verified_quantity': verification.qc_verified_quantity,
+        }
+    elif run.variant_id:
+        initial = {
+            'variant': run.variant_id,
+            'packaging': run.packaging_id,
+        }
     detail_form = QCVerificationForm(
-        request.POST if request.POST.get('form') == 'details' else None,
+        request.POST if details_bound else None,
         user=request.user,
+        initial=None if details_bound else initial,
     )
     photo_form = QCPhotoForm(
         request.POST if request.POST.get('form') == 'photo' else None,
