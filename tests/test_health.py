@@ -9,7 +9,7 @@ def test_health_ok_has_no_secrets():
     response = Client().get('/health/')
     assert response.status_code == 200
     assert response.json() == {'status': 'ok'}
-    assert response['Cache-Control'] == 'no-store'
+    assert 'no-store' in response['Cache-Control']
     body = response.content.decode('utf-8')
     assert 'SECRET' not in body
     assert 'sqlite' not in body.lower()

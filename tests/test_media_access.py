@@ -49,7 +49,7 @@ def test_qc_photo_is_limited_to_the_same_factory(client, factory, tmp_path):
         client.force_login(operator)
         allowed = client.get(f'/media/{relative}')
         assert allowed.status_code == 200
-        assert allowed.content == b'photo-bytes'
+        assert b''.join(allowed.streaming_content) == b'photo-bytes'
 
         denied_other = client.get(f'/media/qc/{other.id}/shot.jpg')
         assert denied_other.status_code == 403
@@ -66,7 +66,7 @@ def test_qc_photo_is_limited_to_the_same_factory(client, factory, tmp_path):
         assert platform.status_code == 200
         note = client.get('/media/notes/private.txt')
         assert note.status_code == 200
-        assert b'secret-note' in note.content
+        assert b'secret-note' in b''.join(note.streaming_content)
 
 
 @pytest.mark.django_db
