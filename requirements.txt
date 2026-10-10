@@ -1,0 +1,14 @@
+# FactoryOps — Production Dependencies
+# Generated from: pip freeze (Python 3.14.3, Django 6.1.1)
+# Updated: 2026-09-15
+
+# Core framework
+Django==6.1.1
+asgiref==3.12.1
+sqlparse==0.6.0
+
+# Environment variable management
+python-dotenv==1.2.3
+
+# Timezone data (required on Windows)
+tzdata==2026.3

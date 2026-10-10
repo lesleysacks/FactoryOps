@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}Inventory dashboard — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Inventory dashboard</h1>
+        <p>Stock snapshots and movements for {{ metrics.today }}</p>
+    </div>
+
+    <div class="metric-grid">
+        {% include 'partials/metric.html' with label="Current Stock" value=metrics.stock_item_count tone="info" hint="Materials with a latest count snapshot" %}
+        {% include 'partials/metric.html' with label="Recent Additions" value=metrics.additions_total tone="success" hint="Receipts recorded today" %}
+        {% include 'partials/metric.html' with label="Recent Consumption" value=metrics.consumption_total tone="info" hint="Materials used today" %}
+        {% include 'partials/metric.html' with label="Reconciliation Exceptions" value=metrics.exception_count tone="danger" hint="Non-zero calculated variances" %}
+    </div>
+
+    <div class="card">
+        <h2>Current material stock snapshot</h2>
+        <p class="muted" style="margin-bottom:0.75rem;">Latest stock record per material. This is a count snapshot, not a running balance.</p>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Material</th><th>Date</th><th>Opening</th><th>Closing</th></tr></thead>
+            <tbody>
+            {% for rec in metrics.material_snapshots %}
+                <tr>
+                    <td>{{ rec.material.code }}</td>
+                    <td>{{ rec.recording_date }}</td>
+                    <td class="mono">{{ rec.opening_quantity }}</td>
+                    <td class="mono">{{ rec.closing_quantity|default:"—" }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" class="empty">No stock records.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Warehouse finished-goods snapshots</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Warehouse</th><th>Finished good</th><th>Date</th><th>Opening</th><th>Closing</th></tr></thead>
+            <tbody>
+            {% for rec in metrics.warehouse_snapshots %}
+                <tr>
+                    <td>{{ rec.warehouse.code }}</td>
+                    <td>{{ rec.finished_good.code }}</td>
+                    <td>{{ rec.recording_date }}</td>
+                    <td class="mono">{{ rec.opening_quantity }}</td>
+                    <td class="mono">{{ rec.closing_quantity|default:"—" }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="empty">No warehouse stock records.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="section-grid">
+        <div class="card">
+            <h2>Material additions today</h2>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Material</th><th>Quantity</th></tr></thead>
+                <tbody>
+                {% for item in metrics.additions_today %}
+                    <tr><td>{{ item.material.code }}</td><td class="mono">{{ item.quantity }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="2" class="empty">No additions today.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Consumption today</h2>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Material</th><th>Quantity</th></tr></thead>
+                <tbody>
+                {% for item in metrics.consumption_today %}
+                    <tr><td>{{ item.material.code }}</td><td class="mono">{{ item.quantity }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="2" class="empty">No consumption today.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Reconciliation exceptions</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Date</th><th>Material</th><th>Variance</th></tr></thead>
+            <tbody>
+            {% for rec in metrics.reconciliation_exceptions %}
+                <tr>
+                    <td>{{ rec.reconciliation_date }}</td>
+                    <td>{{ rec.material.code }}</td>
+                    <td>{% include 'partials/badge.html' with label=rec.variance_quantity tone=rec.variance_quantity|variance_tone %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="3" class="empty">No reconciliation exceptions.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Dispatch activity</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>When</th><th>Warehouse</th><th>Finished good</th><th>Quantity</th></tr></thead>
+            <tbody>
+            {% for item in metrics.recent_dispatches %}
+                <tr>
+                    <td>{{ item.dispatched_at }}</td>
+                    <td>{{ item.warehouse.code }}</td>
+                    <td>{{ item.finished_good.code }}</td>
+                    <td class="mono">{{ item.quantity }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" class="empty">No dispatches.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

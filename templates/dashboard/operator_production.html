@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}Production — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Production</h1>
+        <p>{% if factory %}{{ factory.name }}{% else %}No factory assigned{% endif %}</p>
+    </div>
+
+    {% if not factory %}
+        <div class="alert alert-warning">
+            Your account is not assigned to a factory. Ask a supervisor to assign you before recording production.
+        </div>
+    {% endif %}
+
+    <div class="card">
+        <h2>Production lines</h2>
+        {% if lines %}
+        <div class="capture-list">
+            {% for line in lines %}
+                <a class="capture-action" href="{% url 'dashboard:production_line' line.pk %}">
+                    <strong>{{ line.name }}{% if line.code %} · {{ line.code }}{% endif %}</strong>
+                    <span>Select this line to choose a machine and start a run</span>
+                </a>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="empty">No production lines are set up for this factory.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Active machines</h2>
+        {% if machines %}
+        <div class="capture-list">
+            {% for machine in machines %}
+                <a class="capture-action" href="{% url 'dashboard:operator_machine' machine.pk %}">
+                    <strong>{{ machine.code }} · {{ machine.name }}</strong>
+                    <span>
+                        {{ machine.production_line.name }}
+                        {% status_tone machine.status as tone %}
+                        · {% include 'partials/badge.html' with label=machine.get_status_display tone=tone %}
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="empty">No machines are available on your lines.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Active runs</h2>
+        {% if active_runs %}
+        <div class="capture-list">
+            {% for run in active_runs %}
+                <a class="capture-action" href="{% url 'dashboard:production_run' run.pk %}">
+                    <strong>{{ run.reference }}</strong>
+                    <span>
+                        {% if run.production_line %}{{ run.production_line.name }}{% endif %}
+                        {% if run.machine %} · {{ run.machine.code }}{% endif %}
+                        {% status_tone run.status as tone %}
+                        · {% include 'partials/badge.html' with label=run.get_status_display tone=tone %}
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="empty">No active production runs.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Today's completed runs</h2>
+        {% if completed_runs %}
+        <div class="capture-list">
+            {% for run in completed_runs %}
+                <a class="capture-action" href="{% url 'dashboard:production_run' run.pk %}">
+                    <strong>{{ run.reference }}</strong>
+                    <span>
+                        {% if run.machine %}{{ run.machine.code }}{% endif %}
+                        · output {{ run.output_total|default:"0" }}
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="empty">No completed production runs today.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

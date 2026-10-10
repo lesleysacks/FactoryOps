@@ -1,0 +1,24 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Local database (SQLite)
+*.sqlite3
+db.sqlite3
+
+# Environment variables (secrets — never commit)
+.env
+
+# Media uploads (photos / evidence)
+media/
+
+# Test / coverage artefacts
+.pytest_cache/
+.coverage

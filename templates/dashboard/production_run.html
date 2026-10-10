@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}{{ run.reference }} — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>{{ run.reference }}</h1>
+        <p>
+            {% if run.production_line %}{{ run.production_line.name }}{% endif %}
+            {% if run.machine %} · {{ run.machine.code }}{% endif %}
+            {% if factory %} · {{ factory.name }}{% endif %}
+        </p>
+    </div>
+
+    <div class="card">
+        <p>
+            {% status_tone run.status as tone %}
+            {% include 'partials/badge.html' with label=run.get_status_display tone=tone %}
+        </p>
+        <p style="margin-top:0.75rem;">Started {% if run.started_at %}{{ run.started_at }}{% else %}—{% endif %}</p>
+        {% if run.ended_at %}
+            <p>Completed {{ run.ended_at }}</p>
+        {% endif %}
+        {% if run.created_by %}
+            <p class="muted" style="margin-top:0.5rem;">Started by {{ run.created_by.get_full_name|default:run.created_by.username }}</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Output</h2>
+        {% if outputs %}
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>When</th><th>Output</th><th>Quantity</th></tr></thead>
+                <tbody>
+                {% for item in outputs %}
+                    <tr>
+                        <td>{{ item.recorded_at }}</td>
+                        <td>{{ item.output_name }}{% if item.finished_good %} ({{ item.finished_good.code }}){% endif %}</td>
+                        <td class="mono">{{ item.quantity }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="empty">No output recorded on this run yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Material consumption</h2>
+        {% if consumptions %}
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>When</th><th>Material</th><th>Batch</th><th>Quantity</th><th>Recorded by</th></tr></thead>
+                <tbody>
+                {% for item in consumptions %}
+                    <tr>
+                        <td>{{ item.consumed_at }}</td>
+                        <td>{{ item.material.code }}</td>
+                        <td>{% if item.batch %}{{ item.batch.lot_number }}{% else %}—{% endif %}</td>
+                        <td class="mono">{{ item.quantity }}</td>
+                        <td>{% if item.recorded_by %}{{ item.recorded_by.get_full_name|default:item.recorded_by.username }}{% else %}—{% endif %}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="empty">No material consumption recorded on this run yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Loaded roll and spare</h2>
+        {% if current_material_states %}
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Material</th><th>Roll</th><th>Spare roll</th><th>Recorded</th></tr></thead>
+                <tbody>
+                {% for item in current_material_states %}
+                    <tr>
+                        <td>{{ item.material.code }}</td>
+                        <td class="mono">{{ item.roll_quantity }}</td>
+                        <td class="mono">{{ item.spare_roll_quantity }}</td>
+                        <td>{{ item.recorded_at }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="empty">No machine roll or spare roll state recorded on this run yet.</p>
+        {% endif %}
+    </div>
+
+    {% if is_active_run and can_record_production %}
+    <div class="quick-actions">
+        <a class="btn btn-primary" href="{% url 'dashboard:production_consumption' run.pk %}">Record consumption</a>
+        <a class="btn btn-primary" href="{% url 'dashboard:production_material_state' run.pk %}">Record material state</a>
+    </div>
+
+    <form method="post" class="card capture-form" novalidate>
+        {% csrf_token %}
+        <h2>Record output</h2>
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in form %}
+            <div class="field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}
+                    <p class="field-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Record output</button>
+        </div>
+    </form>
+
+    <form method="post" action="{% url 'dashboard:production_complete' run.pk %}" class="card capture-form">
+        {% csrf_token %}
+        <h2>Complete run</h2>
+        <p class="muted" style="margin-bottom:0.75rem;">Completing the run stops further output, consumption, and material state from being recorded.</p>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Complete run</button>
+        </div>
+    </form>
+    {% elif not is_active_run %}
+        <div class="alert">This run is complete. Output, consumption, and material state can no longer be recorded.</div>
+    {% endif %}
+
+    <p><a class="btn btn-ghost" href="{% url 'dashboard:operator_production' %}">Back to production</a></p>
+</div>
+{% endblock %}

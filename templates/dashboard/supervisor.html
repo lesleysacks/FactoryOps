@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}Supervisor dashboard — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Supervisor dashboard</h1>
+        <p>Operational oversight for {{ metrics.today }}</p>
+    </div>
+
+    <div class="metric-grid">
+        {% include 'partials/metric.html' with label="Active Runs" value=metrics.active_run_count tone=active_tone hint="In-progress production" %}
+        {% include 'partials/metric.html' with label="Waste Today" value=metrics.waste_today tone=waste_tone hint="Material waste logged today" %}
+        {% include 'partials/metric.html' with label="Rejects Today" value=metrics.rejects_today tone=reject_tone hint="Rejected output today" %}
+        {% include 'partials/metric.html' with label="Stock Variances" value=metrics.variance_count tone=variance_tone hint="Calculated material variances" %}
+    </div>
+
+    <div class="card">
+        <h2>Active production runs</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Reference</th><th>Factory</th><th>Started</th></tr></thead>
+            <tbody>
+            {% for run in metrics.active_runs %}
+                <tr>
+                    <td>{{ run.reference }}</td>
+                    <td>{{ run.factory.name }}</td>
+                    <td>{{ run.started_at }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="3" class="empty">No in-progress runs.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Production output trend (7 days)</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Date</th><th>Quantity</th><th></th></tr></thead>
+            <tbody>
+            {% for row in metrics.output_trend %}
+                <tr>
+                    <td>{{ row.date }}</td>
+                    <td class="mono">{{ row.quantity }}</td>
+                    <td>
+                        <div class="trend-bar">
+                            <span style="width:{{ row.percent }}%;"></span>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="section-grid">
+        <div class="card">
+            <h2>Outstanding reconciliations</h2>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Type</th><th>Item</th><th>Date</th></tr></thead>
+                <tbody>
+                {% for rec in metrics.outstanding_material %}
+                    <tr>
+                        <td>Material</td>
+                        <td>{{ rec.material.code }}</td>
+                        <td>{{ rec.reconciliation_date }}</td>
+                    </tr>
+                {% endfor %}
+                {% for rec in metrics.outstanding_finished_goods %}
+                    <tr>
+                        <td>Finished goods</td>
+                        <td>{{ rec.warehouse.code }} / {{ rec.finished_good.code }}</td>
+                        <td>{{ rec.reconciliation_date }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Recent stock variances</h2>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Date</th><th>Material</th><th>Expected</th><th>Actual</th><th>Variance</th></tr></thead>
+                <tbody>
+                {% for rec in metrics.recent_variances %}
+                    <tr>
+                        <td>{{ rec.reconciliation_date }}</td>
+                        <td>{{ rec.material.code }}</td>
+                        <td class="mono">{{ rec.expected_closing_quantity }}</td>
+                        <td class="mono">{{ rec.actual_closing_quantity }}</td>
+                        <td>
+                            {% include 'partials/badge.html' with label=rec.variance_quantity tone=rec.variance_quantity|variance_tone %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="empty">No calculated variances.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

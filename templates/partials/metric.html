@@ -1,0 +1,5 @@
+<div class="metric {{ tone|default:'info' }}">
+    <div class="metric-label">{{ label }}</div>
+    <div class="metric-value">{{ value }}</div>
+    {% if hint %}<div class="metric-hint">{{ hint }}</div>{% endif %}
+</div>

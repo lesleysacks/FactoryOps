@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}Factory manager dashboard — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Factory manager dashboard</h1>
+        <p>Factory performance for 7 days ending {{ metrics.today }}</p>
+    </div>
+
+    <div class="metric-grid">
+        {% include 'partials/metric.html' with label="Production Summary" value=metrics.output_total tone="success" hint="Output over 7 days" %}
+        {% include 'partials/metric.html' with label="Inventory Summary" value=metrics.consumption_total tone="info" hint="Material usage over 7 days" %}
+        {% include 'partials/metric.html' with label="Fulfilment Summary" value=metrics.fulfilled_orders tone="success" hint="Orders marked fulfilled" %}
+    </div>
+
+    <div class="section-grid">
+        <div class="card">
+            <h2>Production summary</h2>
+            <p class="muted" style="margin-bottom:0.75rem;">Output {{ metrics.output_total }} · Waste {{ metrics.waste_total }}</p>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Date</th><th>Output</th></tr></thead>
+                <tbody>
+                {% for row in metrics.output_trend %}
+                    <tr><td>{{ row.date }}</td><td class="mono">{{ row.quantity }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Inventory summary</h2>
+            <p class="muted" style="margin-bottom:0.75rem;">Usage {{ metrics.consumption_total }} · Waste {{ metrics.waste_total }}</p>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Date</th><th>Usage</th></tr></thead>
+                <tbody>
+                {% for row in metrics.consumption_trend %}
+                    <tr><td>{{ row.date }}</td><td class="mono">{{ row.quantity }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Fulfilment summary</h2>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Status</th><th>Orders</th></tr></thead>
+                <tbody>
+                {% for status, count in metrics.fulfilment_counts.items %}
+                    <tr>
+                        <td>
+                            {% status_tone status as tone %}
+                            {% include 'partials/badge.html' with label=status tone=tone %}
+                        </td>
+                        <td>{{ count }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Waste trend</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Date</th><th>Quantity</th></tr></thead>
+            <tbody>
+            {% for row in metrics.waste_trend %}
+                <tr><td>{{ row.date }}</td><td class="mono">{{ row.quantity }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="section-grid">
+        <div class="card">
+            <h2>Inventory variances</h2>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Date</th><th>Material</th><th>Variance</th></tr></thead>
+                <tbody>
+                {% for rec in metrics.recent_variances %}
+                    <tr>
+                        <td>{{ rec.reconciliation_date }}</td>
+                        <td>{{ rec.material.code }}</td>
+                        <td>{% include 'partials/badge.html' with label=rec.variance_quantity tone=rec.variance_quantity|variance_tone %}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="3" class="empty">No variances.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Reconciliation history</h2>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Date</th><th>Material</th><th>Expected</th><th>Actual</th></tr></thead>
+                <tbody>
+                {% for rec in metrics.reconciliation_history %}
+                    <tr>
+                        <td>{{ rec.reconciliation_date }}</td>
+                        <td>{{ rec.material.code }}</td>
+                        <td class="mono">{{ rec.expected_closing_quantity }}</td>
+                        <td class="mono">{{ rec.actual_closing_quantity }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="empty">No calculated reconciliations.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Warehouse activity</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>When</th><th>Warehouse</th><th>Finished good</th><th>Quantity</th></tr></thead>
+            <tbody>
+            {% for item in metrics.recent_dispatches %}
+                <tr>
+                    <td>{{ item.dispatched_at }}</td>
+                    <td>{{ item.warehouse.code }}</td>
+                    <td>{{ item.finished_good.code }}</td>
+                    <td class="mono">{{ item.quantity }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" class="empty">No recent dispatches.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

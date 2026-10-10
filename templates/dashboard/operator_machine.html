@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}{{ machine.code }} — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>{{ machine.code }}</h1>
+        <p>{{ machine.name }}{% if factory %} · {{ factory.name }}{% endif %}</p>
+    </div>
+
+    <div class="card">
+        <p>Line: {{ machine.production_line.name }}{% if machine.production_line.code %} ({{ machine.production_line.code }}){% endif %}</p>
+        <p style="margin-top:0.5rem;">
+            {% status_tone machine.status as tone %}
+            {% include 'partials/badge.html' with label=machine.get_status_display tone=tone %}
+        </p>
+        {% if machine.description %}
+            <p class="muted" style="margin-top:0.75rem;">{{ machine.description }}</p>
+        {% endif %}
+    </div>
+
+    {% if can_record_production %}
+    <form method="post" action="{% url 'dashboard:machine_start' machine.pk %}" class="card capture-form">
+        {% csrf_token %}
+        <h2>Start run</h2>
+        <p class="muted" style="margin-bottom:0.75rem;">Starts a production run on this machine for your factory.</p>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Start run</button>
+        </div>
+    </form>
+    {% endif %}
+
+    <div class="card">
+        <h2>Active runs</h2>
+        {% if active_runs %}
+        <div class="capture-list">
+            {% for run in active_runs %}
+                <a class="capture-action" href="{% url 'dashboard:production_run' run.pk %}">
+                    <strong>{{ run.reference }}</strong>
+                    <span>
+                        {% status_tone run.status as tone %}
+                        {% include 'partials/badge.html' with label=run.get_status_display tone=tone %}
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+        {% else %}
+            <p class="empty">No active runs on this machine.</p>
+        {% endif %}
+    </div>
+
+    <p><a class="btn btn-ghost" href="{% url 'dashboard:operator_production' %}">Back to production</a></p>
+</div>
+{% endblock %}

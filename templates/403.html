@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}Access denied — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 520px; margin: 4rem auto; text-align: center;">
+    <h1 style="margin-bottom: 0.5rem;">Access denied</h1>
+    <p class="muted">Your role cannot open this dashboard.</p>
+    <p style="margin-top: 1.25rem;">
+        <a href="{% url 'dashboard:home' %}" class="btn btn-primary">Return to dashboard</a>
+    </p>
+</div>
+{% endblock %}

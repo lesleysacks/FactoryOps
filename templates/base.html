@@ -1,0 +1,93 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ page_title|default:"Dashboard" }} — FactoryOps{% endblock %}</title>
+    <link rel="icon" href="{% static 'img/favicon/favicon.ico' %}" sizes="any">
+    <link rel="icon" href="{% static 'img/favicon/favicon.svg' %}" type="image/svg+xml">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon/favicon-16x16.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon/apple-touch-icon.png' %}">
+    <link rel="stylesheet" href="{% static 'css/factoryops.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" tabindex="-1">
+    <label for="nav-toggle" class="nav-backdrop" aria-hidden="true"></label>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <a href="{% url 'dashboard:home' %}" class="brand">
+                <span class="brand-mark">FO</span>
+                <span>
+                    <span class="brand-name">{{ product_name|default:"FactoryOps" }}</span>
+                    <span class="brand-tag">{{ product_tagline|default:"Production & Inventory Intelligence" }}</span>
+                </span>
+            </a>
+            <nav class="nav-section" aria-label="Primary">
+                {% for item in nav_items %}
+                    <a class="nav-link{% if nav_active == item.id %} is-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+                {% empty %}
+                    <a class="nav-link" href="{% url 'accounts:login' %}">Sign in</a>
+                {% endfor %}
+            </nav>
+        </aside>
+        <div class="main-column">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <label for="nav-toggle" class="menu-toggle">Menu</label>
+                    <div>
+                        <div class="topbar-title">{% block header_title %}{{ page_title|default:"Dashboard" }}{% endblock %}</div>
+                        {% if breadcrumbs %}
+                        <ol class="breadcrumbs">
+                            {% for crumb in breadcrumbs %}
+                                <li>
+                                    {% if crumb.url %}<a href="{{ crumb.url }}">{{ crumb.label }}</a>{% else %}{{ crumb.label }}{% endif %}
+                                </li>
+                            {% endfor %}
+                        </ol>
+                        {% elif page_subtitle %}
+                        <div class="topbar-crumb">{{ page_subtitle }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="user-menu">
+                    {% if user.is_authenticated %}
+                        <div class="user-meta">
+                            <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+                            <div class="user-role">{{ user.get_role_display|default:user.role }}</div>
+                        </div>
+                        <form action="{% url 'accounts:logout' %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-ghost">Log out</button>
+                        </form>
+                    {% else %}
+                        <a href="{% url 'accounts:login' %}" class="btn btn-primary">Sign in</a>
+                    {% endif %}
+                </div>
+            </header>
+            <main id="main" class="content">
+                {% if messages %}
+                    <div class="page-stack" style="margin-bottom:1rem;">
+                    {% for message in messages %}
+                        {% if 'success' in message.tags %}
+                            {% include 'partials/alert.html' with tone='success' message=message %}
+                        {% elif 'error' in message.tags %}
+                            {% include 'partials/alert.html' with tone='danger' message=message %}
+                        {% elif 'warning' in message.tags %}
+                            {% include 'partials/alert.html' with tone='warning' message=message %}
+                        {% else %}
+                            {% include 'partials/alert.html' with tone='info' message=message %}
+                        {% endif %}
+                    {% endfor %}
+                    </div>
+                {% endif %}
+                {% block content %}{% endblock %}
+            </main>
+            <footer class="footer-note">FactoryOps · Production &amp; Inventory Intelligence</footer>
+        </div>
+    </div>
+</body>
+</html>

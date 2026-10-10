@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}Operator dashboard — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Operator dashboard</h1>
+        <p>Today's work for {{ metrics.today }}{% if factory %} · {{ factory.name }}{% endif %}</p>
+    </div>
+
+    <div class="card">
+        <h2>My shift / current work</h2>
+        {% if factory %}
+            <p>{{ factory.name }}{% if factory.location %} · {{ factory.location }}{% endif %}</p>
+        {% else %}
+            <p class="empty">Your account is not assigned to a factory.</p>
+        {% endif %}
+        <div class="section-grid" style="margin-top:0.85rem;">
+            <div>
+                <h3 class="subhead">Production line</h3>
+                {% for line in lines %}
+                    <p>{{ line.name }}{% if line.code %} ({{ line.code }}){% endif %}</p>
+                {% empty %}
+                    <p class="empty">No production lines are set up for this factory.</p>
+                {% endfor %}
+            </div>
+            <div>
+                <h3 class="subhead">Machine</h3>
+                {% for machine in machines %}
+                    <p>
+                        <a href="{% url 'dashboard:operator_machine' machine.pk %}">{{ machine.code }}</a>
+                        · {{ machine.name }}
+                    </p>
+                {% empty %}
+                    <p class="empty">No machines are available on your lines.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="metric-grid">
+        {% include 'partials/metric.html' with label="Active Runs" value=metrics.active_run_count tone="info" hint="Runs currently in progress" %}
+        {% include 'partials/metric.html' with label="Today's Production" value=metrics.production_total tone="success" hint="Output recorded today" %}
+        {% include 'partials/metric.html' with label="Completed Runs" value=metrics.completed_run_count_today tone="success" hint="Runs completed today" %}
+        {% include 'partials/metric.html' with label="Today's Tasks" value=metrics.task_count tone="info" hint="Open runs and unfinished stock counts" %}
+        {% include 'partials/metric.html' with label="Today's Consumption" value=metrics.consumption_event_count tone="info" hint="Material consumption events recorded today" %}
+    </div>
+
+    <div class="card">
+        <h2>Quick actions</h2>
+        <p class="muted" style="margin-bottom:0.75rem;">Record production, stock counts, and receipts from the floor.</p>
+        <div class="quick-actions">
+            {% if can_record_production %}
+            <a class="btn btn-primary" href="{% url 'dashboard:operator_production' %}">Start production</a>
+            {% endif %}
+            <a class="btn btn-primary" href="{% url 'dashboard:stock_count_create' %}">Record stock count</a>
+            <a class="btn btn-primary" href="{% url 'dashboard:material_receipt_create' %}">Record receipt</a>
+        </div>
+    </div>
+
+    <div class="section-grid">
+        <div class="card">
+            <h2>Today's production runs</h2>
+            <div class="table-wrap">
+            {% if metrics.runs_today %}
+            <table class="data">
+                <thead><tr><th>Reference</th><th>Status</th><th>Factory</th></tr></thead>
+                <tbody>
+                {% for run in metrics.runs_today %}
+                    <tr>
+                        <td><a href="{% url 'dashboard:production_run' run.pk %}">{{ run.reference }}</a></td>
+                        <td>
+                            {% status_tone run.status as tone %}
+                            {% include 'partials/badge.html' with label=run.get_status_display tone=tone %}
+                        </td>
+                        <td>{{ run.factory.name }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty">No production activity recorded yet.</p>
+            {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Today's tasks</h2>
+            <p class="muted" style="margin-bottom:0.75rem;">Open or planned runs, and stock counts still missing a closing quantity.</p>
+            <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Type</th><th>Reference</th><th>Detail</th></tr></thead>
+                <tbody>
+                {% for run in metrics.open_runs %}
+                    <tr>
+                        <td>Production run</td>
+                        <td><a href="{% url 'dashboard:production_run' run.pk %}">{{ run.reference }}</a></td>
+                        <td>
+                            {% status_tone run.status as tone %}
+                            {% include 'partials/badge.html' with label=run.get_status_display tone=tone %}
+                        </td>
+                    </tr>
+                {% empty %}
+                {% endfor %}
+                {% for record in metrics.open_stock_counts %}
+                    <tr>
+                        <td>Stock count</td>
+                        <td>{{ record.material.code }}</td>
+                        <td>
+                            <a href="{% url 'dashboard:stock_count_close' record.pk %}">{{ record.recording_date }} — record closing</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Today's activity</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Material</th><th>Quantity</th><th>Reference</th></tr></thead>
+            <tbody>
+            {% for item in metrics.consumption_today %}
+                <tr>
+                    <td>{{ item.material.code }}</td>
+                    <td class="mono">{{ item.quantity }}</td>
+                    <td>{{ item.production_reference|default:"—" }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="3" class="empty">No consumption recorded today.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Recent submissions</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>When</th><th>Material</th><th>Quantity</th><th>Lot</th></tr></thead>
+            <tbody>
+            {% for item in metrics.recent_additions %}
+                <tr>
+                    <td>{{ item.added_at }}</td>
+                    <td>{{ item.material.code }}</td>
+                    <td class="mono">{{ item.quantity }}</td>
+                    <td>{{ item.batch.lot_number }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" class="empty">No receipts recorded yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Today's waste</h2>
+        <div class="table-wrap">
+        <table class="data">
+            <thead><tr><th>Material</th><th>Quantity</th><th>Reason</th></tr></thead>
+            <tbody>
+            {% for item in metrics.waste_today %}
+                <tr>
+                    <td>{{ item.material.code }}</td>
+                    <td class="mono">{{ item.quantity }}</td>
+                    <td>{{ item.reason }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="3" class="empty">No waste logged today.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
