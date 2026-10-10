@@ -1,45 +1,50 @@
 """Restore a FactoryOps backup into a separate directory.
 
 This never replaces the live database. Promoting a restored copy onto the
-factory PC is a manual step done while the server is stopped.
+factory PC is a manual step done while the server is stopped. The command
+checks the manifest and checksums before it writes, and it refuses a
+destination that resolves to the live database.
 """
 
 import argparse
 import shutil
-import sqlite3
 import sys
 from pathlib import Path
+
+from scripts.backup_factoryops import (
+    SNAPSHOT_NAME,
+    assert_destination_safe,
+    backup_sqlite,
+    copy_listed_files,
+    describe_manifest_media,
+    validate_backup,
+)
 
 
 def restore_backup(bundle, destination, live_database=None):
     bundle = Path(bundle).resolve()
     destination = Path(destination).resolve()
-    database = bundle / 'db.sqlite3'
-    if not database.is_file():
-        raise FileNotFoundError(f'Backup has no db.sqlite3: {bundle}')
-    if live_database is not None and destination == Path(live_database).resolve().parent:
-        raise ValueError('Refusing to restore into the live database directory.')
-    if live_database is not None and (destination / 'db.sqlite3').resolve() == Path(live_database).resolve():
-        raise ValueError('Refusing to overwrite the live database.')
+    manifest = validate_backup(bundle)
+    assert_destination_safe(destination, live_database)
+    if destination == bundle or bundle in destination.parents or destination in bundle.parents:
+        raise ValueError('Restore destination must be separate from the backup folder.')
     if destination.exists() and any(destination.iterdir()):
         raise FileExistsError(
             f'Destination is not empty: {destination}. Choose a new folder.'
         )
     destination.mkdir(parents=True, exist_ok=True)
-    target_db = destination / 'db.sqlite3'
-    source = sqlite3.connect(Path(database).resolve().as_uri() + '?mode=ro', uri=True)
-    copied = sqlite3.connect(target_db)
     try:
-        source.backup(copied)
-        row = copied.execute('PRAGMA integrity_check').fetchone()
-    finally:
-        copied.close()
-        source.close()
-    if row is None or row[0] != 'ok':
-        raise RuntimeError('Restored database failed the SQLite integrity check.')
-    media = bundle / 'media'
-    if media.exists():
-        shutil.copytree(media, destination / 'media')
+        target_db = destination / SNAPSHOT_NAME
+        backup_sqlite(bundle / SNAPSHOT_NAME, target_db)
+        copied = copy_listed_files(bundle, destination, manifest)
+        if manifest['media_status'] == 'copied' and not copied:
+            raise FileNotFoundError('Backup media files are missing. Restore was not completed.')
+        for relative in copied:
+            if not (destination / relative).is_file():
+                raise FileNotFoundError(f'Restore is missing media file {relative}.')
+    except Exception:
+        shutil.rmtree(destination, ignore_errors=True)
+        raise
     return target_db
 
 
@@ -59,9 +64,11 @@ def main(argv=None):
             args.destination,
             live_database=args.live_database or None,
         )
+        manifest_status = validate_backup(args.backup)['media_status']
     except Exception as exc:
         print(f'RESTORE FAILED: {exc}', file=sys.stderr)
         return 1
+    print(describe_manifest_media(manifest_status))
     print(f'RESTORE OK {target}')
     return 0
 

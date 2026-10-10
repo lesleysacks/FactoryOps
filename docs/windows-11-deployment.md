@@ -200,13 +200,15 @@ When credentials must not travel in clear text, put a TLS reverse proxy on the s
 
 ## Backups and restore
 
-The daily task runs `scripts\backup_factoryops.py`. That uses SQLite's backup API on a read-only connection, then `PRAGMA integrity_check`. It does not copy the live database file with the file copier while writes may be in progress. Each run creates a new folder:
+The daily task runs `scripts\backup_factoryops.py`. That uses SQLite's backup API on a read-only connection, then `PRAGMA integrity_check`. It does not copy the live database file with the file copier while writes may be in progress. Each run creates a new folder and does not overwrite an existing one:
 
 ```text
 C:\FactoryOps\backups\20261010T020000Z\db.sqlite3
 C:\FactoryOps\backups\20261010T020000Z\media\
 C:\FactoryOps\backups\20261010T020000Z\manifest.json
 ```
+
+`manifest.json` records the creation time, the SQLite engine, every included file, its size, and its SHA-256 checksum. `.env` is not copied. If `media` has no files, the backup says so and still saves the database.
 
 Folders older than `FACTORYOPS_BACKUP_RETENTION_DAYS` (default 14, also `retentionDays` in the ProgramData config) are removed. The live database and live `media` folder are not deleted. A failed backup prints `BACKUP FAILED` and writes an error line to `operations.log`. The scheduled task exits non-zero so Task Scheduler shows the failure.
 
@@ -216,7 +218,17 @@ Run a backup by hand:
 .\deploy\windows\Backup-FactoryOps.ps1
 ```
 
-Restore always goes to a **new empty folder**. It asks for confirmation and refuses the live database path:
+From the project virtual environment, the same tool reads the database path from Django settings:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python manage.py backup_factoryops --destination C:\FactoryOps\backups
+python manage.py verify_restore --backup C:\FactoryOps\backups\20261010T020000Z --destination C:\FactoryOps\restore-test
+```
+
+`verify_restore` checks checksums, SQLite integrity, migrations, and Django checks on that disposable copy. It refuses the live database path. Omit `--destination` to use a temporary directory that is deleted after the checks.
+
+A file copy into a new empty folder, still without touching the live database, asks for confirmation:
 
 ```powershell
 .\deploy\windows\Restore-FactoryOps.ps1 `
@@ -224,7 +236,7 @@ Restore always goes to a **new empty folder**. It asks for confirmation and refu
   -Destination C:\FactoryOps\restore-test
 ```
 
-Check the restored file, then stop the server before you ever copy a restored database over the live one. Do that copy only while Waitress is stopped, and keep the previous backup. The restore script will not do that replacement for you.
+Stop the server before you ever copy a restored database over the live one. Keep the previous backup and the files you moved aside. The restore script will not do that replacement for you. See the README section "Backup and recovery" for the manual steps.
 
 Put a second copy of `C:\FactoryOps\backups` on removable media that does not stay attached to the PC. A backup on the same disk is not a recovery plan for a dead drive.
 

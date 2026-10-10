@@ -204,6 +204,81 @@ python manage.py createsuperuser
 
 ---
 
+## Backup and recovery
+
+Factory records and uploaded photos live in the SQLite database and `MEDIA_ROOT`. Git history stores source code only. Cloning or checking out the repository does not restore `db.sqlite3`, the `media\` folder, or a previous backup. Those files are gitignored and must be backed up separately.
+
+From the project root, with the virtual environment active:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python manage.py backup_factoryops --destination "$env:USERPROFILE\FactoryOpsBackups"
+```
+
+The command reads the database file and `MEDIA_ROOT` from the active Django settings (`config.settings.development` unless `DJANGO_SETTINGS_MODULE` is already set). It uses SQLite's online backup API, checks the snapshot with `PRAGMA integrity_check`, and prints `BACKUP OK` plus the new folder path. A second run in the same second gets a numeric suffix. An existing backup folder is left in place.
+
+Choose another disk or folder with `--destination`:
+
+```powershell
+python manage.py backup_factoryops --destination "D:\FactoryBackups"
+```
+
+`FACTORYOPS_BACKUP_DIR` is the default when `--destination` is omitted. On the factory PC the scheduled task still uses `C:\FactoryOps\backups` through `.\deploy\windows\Backup-FactoryOps.ps1`. Folders in the destination older than 14 days (`--retention-days` or `FACTORYOPS_BACKUP_RETENTION_DAYS`) are removed. Point that folder only at FactoryOps backups.
+
+Each backup directory contains:
+
+| Path | Contents |
+|---|---|
+| `db.sqlite3` | Consistent SQLite snapshot |
+| `media\` | Copy of `MEDIA_ROOT` with the same relative paths, when that directory has files |
+| `manifest.json` | Creation time, database engine, file list, sizes, and SHA-256 checksums |
+
+If `MEDIA_ROOT` is missing, the command prints `MEDIA absent` and still backs up the database. If the directory exists and has no files, it prints `MEDIA empty`. The backup does not include `.env` files, source code, logs, or the backup folder itself. It does not print secret values and it does not modify the live database.
+
+Verify a backup, including checksums, SQLite integrity, migrations, and Django checks, on a disposable copy:
+
+```powershell
+python manage.py verify_restore --backup "$env:USERPROFILE\FactoryOpsBackups\<timestamp>"
+```
+
+That temporary copy is removed after the checks. To keep an isolated rehearsal folder:
+
+```powershell
+python manage.py verify_restore `
+  --backup "$env:USERPROFILE\FactoryOpsBackups\<timestamp>" `
+  --destination "$env:TEMP\FactoryOpsRestoreRehearsal"
+```
+
+`verify_restore` refuses a destination that resolves to the live database file or the live database's folder. A failed check prints `VERIFY FAILED` and does not report success. A backup that claims to include media but is missing those files fails the same way.
+
+On the factory PC, the same rehearsal into a new folder (without applying it over the live files) is:
+
+```powershell
+.\deploy\windows\Restore-FactoryOps.ps1 `
+  -Backup C:\FactoryOps\backups\<timestamp> `
+  -Destination C:\FactoryOps\restore-test
+```
+
+The script asks for confirmation. It checks the manifest and checksums, then copies into the empty folder you named. It refuses the live database path.
+
+### Manual recovery
+
+There is no command that replaces the live database. Do that by hand, and only after a rehearsal succeeds.
+
+1. Run `verify_restore` against the backup you intend to keep.
+2. Create a fresh backup of the current live database and media, and keep that folder until the plant confirms the recovered data.
+3. Stop the server (`.\deploy\windows\Stop-FactoryOps.ps1`, or stop `runserver`).
+4. Move the current `db.sqlite3` and `media\` folder aside. Leave them until the recovered system is accepted.
+5. Copy `db.sqlite3` and `media\` out of the chosen backup directory into the project paths configured in Django settings (on the factory PC, `C:\FactoryOps\app\db.sqlite3` and `C:\FactoryOps\app\media`).
+6. Start the server and open `/health/` plus a record you know from that backup.
+7. If the data is wrong, stop the server and put the files from step 4 back.
+
+### Protecting backups
+
+Backup folders contain factory records and QC photos. Keep them outside the Git repository. Restrict the folder to the people who are allowed to see that data, and keep a second copy on removable media that does not stay attached to the PC. Do not commit backup archives, `db.sqlite3`, `media\`, or `.env`.
+
+---
+
 ## Verify Installation
 
 ```powershell
@@ -323,14 +398,12 @@ Plain HTTP on the LAN can be read by anyone on that Wi-Fi. A later Caddy or IIS 
 
 ### Backup and recovery
 
-Daily at 02:00, `Backup-FactoryOps.ps1` runs the SQLite backup API and copies `media` into `C:\FactoryOps\backups\<timestamp>\`. Retention defaults to 14 days. Failures are printed and written to `C:\FactoryOps\logs\operations.log`.
+Daily at 02:00, `Backup-FactoryOps.ps1` runs the same SQLite backup tool into `C:\FactoryOps\backups\<timestamp>\`. Retention defaults to 14 days. Failures are printed and written to `C:\FactoryOps\logs\operations.log`. The live database is not deleted. Full commands, verification, and the manual recovery steps are in [Backup and recovery](#backup-and-recovery).
 
 ```powershell
 .\deploy\windows\Backup-FactoryOps.ps1
 .\deploy\windows\Restore-FactoryOps.ps1 -Backup C:\FactoryOps\backups\<timestamp> -Destination C:\FactoryOps\restore-test
 ```
-
-Restore asks for confirmation and will not overwrite the live database. Keep a second copy of the backup folder on removable media, and put the PC on a UPS that can shut Windows down cleanly.
 
 ### Checklist
 
@@ -349,6 +422,8 @@ python manage.py makemigrations
 python manage.py makemigrations --check
 python manage.py check
 python manage.py createsuperuser
+python manage.py backup_factoryops --destination "$env:USERPROFILE\FactoryOpsBackups"
+python manage.py verify_restore --backup "$env:USERPROFILE\FactoryOpsBackups\<timestamp>" --destination "$env:TEMP\FactoryOpsRestoreRehearsal"
 python -m pytest
 python -m pytest -k settings_env
 coverage run -m pytest
@@ -373,7 +448,8 @@ coverage report
 - Dashboards require authentication; roles gate paths.
 - Factory-assigned users are scoped to their factory.
 - Admin is powerful — limit staff users in a pilot.
-- Never commit secrets, SQLite DBs with plant data, or `media/` uploads.
+- Never commit secrets, SQLite DBs with plant data, `media/` uploads, or backup archives.
+- Backup folders contain the same factory records and photos as the live database. Store them outside Git and limit who can read them.
 - For any host reachable beyond localhost, set `DEBUG=False` and tighten `ALLOWED_HOSTS`.
 
 This pilot stack is **not** a hardened multi-tenant SaaS review.
