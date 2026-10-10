@@ -11,7 +11,9 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
+# Production is the default for the WSGI entry point. manage.py still
+# selects development before Django starts, so runserver is unchanged.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
 
 
 application = get_wsgi_application()
