@@ -32,6 +32,9 @@ erDiagram
   Factory ||--o{ FinishedGood : has
   Factory ||--o{ ProductionRun : has
   Factory ||--o{ CustomerOrder : has
+  Factory ||--o{ Product : has
+  Factory ||--o{ Packaging : has
+  Factory ||--o{ AuditEvent : has
 ```
 
 ## Materials
@@ -77,6 +80,26 @@ erDiagram
 ```
 
 **Warehouse** code unique per factory (`FG-MAIN`, `FG-STORE`, `FG-HOLDING`).
+
+## Catalog, QC, and audit (V1.1)
+
+```mermaid
+erDiagram
+  Factory ||--o{ Product : has
+  Product ||--o{ ProductVariant : has
+  Factory ||--o{ Packaging : has
+  Packaging ||--o| Packaging : contains
+  ProductionRun }o--o| Product : configures
+  ProductionRun }o--o| ProductVariant : configures
+  ProductionRun }o--o| Packaging : configures
+  ProductionRun ||--o| QCVerification : verified_by
+  QCVerification ||--o{ QCPhoto : evidence
+  QCVerification }o--o| ProductVariant : confirms
+  QCVerification }o--o| Packaging : confirms
+  Factory ||--o{ AuditEvent : records
+```
+
+`ProductionRun.stage` is null on legacy runs. New controlled runs move through draft, inputs, production, output, QC, validation, completed, or exception. Expected, operator-recorded, and QC-verified quantities stay separate. Packaging conversion is data (`10's` = 10, `15's` = 150, `60's` = 600 individual units in the sanitary seed). Audit events are append-only.
 
 **FinishedGoodStockRecord** unique on `(warehouse, finished_good, recording_date)`.
 

@@ -16,6 +16,12 @@
         </div>
     {% endif %}
 
+    {% if can_record_production %}
+    <div class="quick-actions">
+        <a class="btn btn-primary" href="{% url 'dashboard:configure_run' %}">Configure a controlled run</a>
+    </div>
+    {% endif %}
+
     <div class="card">
         <h2>Production lines</h2>
         {% if lines %}

@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}QC {{ run.reference }} — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>QC {{ run.reference }}</h1>
+        <p>
+            {% if run.product %}{{ run.product.name }}{% endif %}
+            {% if run.variant %} · operator variant {{ run.variant.name }}{% endif %}
+            {% if run.packaging %} · {{ run.packaging.code }}{% endif %}
+        </p>
+    </div>
+
+    <div class="card">
+        <h2>Quantities</h2>
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Expected</th><th>Operator recorded</th><th>QC verified</th><th>Recorded vs expected</th><th>Status</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td class="mono">{% if variance.expected != None %}{{ variance.expected }}{% else %}—{% endif %}</td>
+                        <td class="mono">{% if variance.recorded != None %}{{ variance.recorded }}{% else %}—{% endif %}</td>
+                        <td class="mono">{% if variance.qc_verified != None %}{{ variance.qc_verified }}{% else %}—{% endif %}</td>
+                        <td class="mono">{% if variance.recorded_vs_expected != None %}{{ variance.recorded_vs_expected }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% status_tone variance.status as tone %}
+                            <span class="traffic {{ tone }}" aria-hidden="true"></span>
+                            {% include 'partials/badge.html' with label=variance.status tone=tone %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted" style="margin-top:0.75rem;">QC cannot change the operator's output rows. Verified quantity is a separate value.</p>
+    </div>
+
+    {% if gate and not gate.ok %}
+        <div class="alert alert-warning">Still needed: {{ gate.missing|join:", " }}.</div>
+    {% endif %}
+
+    {% if can_edit %}
+    <form method="post" class="card capture-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="form" value="details">
+        <h2>Confirm variant and quantity</h2>
+        {% if detail_form.non_field_errors %}
+            <div class="alert alert-danger">{{ detail_form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in detail_form %}
+            <div class="field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+                {% for error in field.errors %}
+                    <p class="field-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save QC details</button>
+        </div>
+    </form>
+
+    <form method="post" enctype="multipart/form-data" class="card capture-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="form" value="photo">
+        <h2>Upload photo</h2>
+        {% if photo_form.non_field_errors %}
+            <div class="alert alert-danger">{{ photo_form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in photo_form %}
+            <div class="field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}
+                    <p class="field-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Upload photo</button>
+        </div>
+    </form>
+
+    <form method="post" class="card capture-form">
+        {% csrf_token %}
+        <input type="hidden" name="form" value="complete">
+        <h2>Complete QC</h2>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Complete QC</button>
+        </div>
+    </form>
+    {% endif %}
+
+    <div class="card">
+        <h2>Photos</h2>
+        {% if photos %}
+            <ul>
+            {% for photo in photos %}
+                <li>
+                    <a href="{{ photo.image.url }}">{{ photo.caption|default:"Photo" }}</a>
+                    {% if photo.uploaded_by %} · {{ photo.uploaded_by.username }}{% endif %}
+                    · {{ photo.uploaded_at }}
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty">No QC photos yet.</p>
+        {% endif %}
+    </div>
+
+    <p><a class="btn btn-ghost" href="{% url 'dashboard:qc_queue' %}">Back to QC queue</a></p>
+</div>
+{% endblock %}

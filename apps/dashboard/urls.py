@@ -4,7 +4,7 @@ FactoryOps Dashboard — URL Configuration
 
 from django.urls import path
 
-from . import operator_views, production_views, views
+from . import control_views, operator_views, production_views, views
 
 app_name = 'dashboard'
 
@@ -64,6 +64,35 @@ urlpatterns = [
         operator_views.material_receipt_create,
         name='material_receipt_create',
     ),
+    path(
+        'operator/production/configure/',
+        control_views.configure_run,
+        name='configure_run',
+    ),
+    path(
+        'operator/production/runs/<int:pk>/start-controlled/',
+        control_views.start_controlled_run,
+        name='start_controlled_run',
+    ),
+    path(
+        'operator/production/runs/<int:pk>/output-recorded/',
+        control_views.mark_output_recorded,
+        name='mark_output_recorded',
+    ),
+    path(
+        'operator/production/runs/<int:pk>/submit-qc/',
+        control_views.submit_for_qc,
+        name='submit_for_qc',
+    ),
+    path(
+        'operator/production/runs/<int:pk>/cancel-controlled/',
+        control_views.cancel_controlled_run,
+        name='cancel_controlled_run',
+    ),
+    path('qc/', control_views.qc_queue, name='qc_queue'),
+    path('qc/runs/<int:pk>/', control_views.qc_verification, name='qc_verification'),
+    path('exceptions/', control_views.exception_queue, name='exception_queue'),
+    path('exceptions/runs/<int:pk>/', control_views.exception_detail, name='exception_detail'),
     path('supervisor/', views.supervisor, name='supervisor'),
     path('manager/', views.manager, name='manager'),
     path('executive/', views.executive, name='executive'),

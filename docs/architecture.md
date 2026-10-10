@@ -35,9 +35,11 @@ Commercial demand
 | `apps.factories` | Factory, production line | Active |
 | `apps.machines` | Asset register + status | Thin (no telemetry) |
 | `apps.materials` | RM inventory events + recon | Active |
-| `apps.production` | Runs, output, warehouse, FG inventory | Active |
+| `apps.catalog` | Product, variant, packaging conversion | Active |
+| `apps.production` | Runs, stage workflow, QC, variance, warehouse | Active |
+| `apps.audit` | Append-only audit events and controlled corrections | Active |
 | `apps.orders` | Customers, orders, allocation, reservations | Active |
-| `apps.dashboard` | Role dashboards (read-only) | Active |
+| `apps.dashboard` | Role dashboards and operator / QC / exception screens | Active |
 | `apps.shifts` | — | Stub |
 | `apps.handovers` | — | Stub |
 | `apps.downtime` | — | Stub |
@@ -53,6 +55,9 @@ All of these are **opt-in**. Saving a source row does not recompute them.
 | FG expected closing | `apps.production.services` | opening + additions + INCREASE − DECREASE − dispatches |
 | Available FG stock | `apps.orders.services` | latest counted closing − reservations |
 | Order fulfilment | `apps.orders.services` | dispatch allocations vs ordered qty |
+| Pack → individual units | `apps.catalog.services` | packaging `contains` chain |
+| Production variance | `apps.production.variance` | expected vs recorded vs QC verified |
+| Run stage gates | `apps.production.state_machine` | server-side required fields and transitions |
 
 Date windows use **UTC calendar dates** (`TIME_ZONE=UTC`).
 
@@ -72,7 +77,7 @@ Date windows use **UTC calendar dates** (`TIME_ZONE=UTC`).
 
 ## Out of architecture (v1)
 
-Invoicing, pricing, CRM, freight, procurement, accounting, warehouse transfers, bin locations, QC workflows, photos, Excel export, AI.
+Invoicing, pricing, CRM, freight, procurement, accounting, warehouse transfers, bin locations, Excel export, AI / Foreperson. V1.1 adds catalog, QC verification, photos, variance, and audit. The variance service is deterministic; an AI foreperson is not part of this system and is not a source of truth.
 
 ## Decision record
 
