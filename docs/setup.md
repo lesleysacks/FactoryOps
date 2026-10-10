@@ -115,3 +115,7 @@ Open `http://<lan-ip>:8000` from another device on the same network. If you see 
 5. `.env` gitignored; `.env.example` is the safe template  
 
 More detail: [README — Environment Configuration](../README.md#environment-configuration).
+
+## Factory PC
+
+`runserver` is for development. A dedicated Windows 11 PC uses Waitress, Task Scheduler, and the login-page kiosk described in [windows-11-deployment.md](windows-11-deployment.md). Copy `.env.production.example` rather than the development `.env.example` on that PC.

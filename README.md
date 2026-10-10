@@ -88,7 +88,8 @@ Login home (`/` and `/dashboard/`) redirects by role. Assign each user a `factor
 
 - **Python** 3.12+ (local runtime has also been used with newer 3.x)
 - **Django** (see `requirements.txt` pin)
-- **SQLite** for local / pilot database
+- **SQLite** for local / pilot and the Windows factory PC
+- **Waitress** for the factory-PC WSGI server
 - **python-dotenv** for `.env` loading
 - **pytest** + **pytest-django** for tests (`requirements-dev.txt`)
 
@@ -115,7 +116,9 @@ FactoryOps/
 ├── config/            # Django project (settings, urls, wsgi/asgi)
 ├── templates/         # Project templates
 ├── static/            # CSS / favicon
-├── docs/              # Architecture, setup, pilot docs
+├── deploy/windows/    # Factory-PC install, kiosk, firewall, backup scripts
+├── docs/              # Architecture, setup, Windows 11 deployment
+├── scripts/           # Production server, backup, and restore
 ├── tests/             # Cross-cutting config tests
 ├── manage.py
 ├── requirements.txt
@@ -155,7 +158,7 @@ Full walkthrough: [docs/setup.md](docs/setup.md).
 
 | File | Purpose |
 |---|---|
-| `requirements.txt` | Runtime (Django, dotenv, tzdata) |
+| `requirements.txt` | Runtime (Django, dotenv, tzdata, Waitress, WhiteNoise) |
 | `requirements-dev.txt` | Includes runtime + pytest, pytest-django, coverage |
 
 Install both for local development and testing.
@@ -260,6 +263,78 @@ Do **not** hardcode LAN IPs in Python. Do **not** set `ALLOWED_HOSTS=*`. Keep `D
 | `KeyError: 'SECRET_KEY'` | Missing `.env` or empty key | Copy `.env.example` → `.env` and generate a key |
 | Host still rejected after edit | Server not restarted / wrong `.env` path | Restart from project root; `.env` must sit next to `manage.py` |
 | Used Python list syntax in `.env` | dotenv expects `key=value` | Use `ALLOWED_HOSTS=localhost,127.0.0.1,<ip>` only |
+
+`runserver` above is for a supervised development check. The factory PC does not keep using it. Use the Windows 11 guide below.
+
+---
+
+## Windows 11 factory PC
+
+One dedicated Windows 11 PC is the central server. It starts FactoryOps at boot, keeps the database and QC photos on disk, and can open the existing login page full screen after a standard display account signs in. Phones use the factory Wi-Fi only. Do not port-forward this PC to the internet.
+
+Full procedure, firewall, HTTP limits, backup, and the acceptance checklist: [docs/windows-11-deployment.md](docs/windows-11-deployment.md).
+
+### Install
+
+From an elevated PowerShell, with the checkout at `C:\FactoryOps\app`:
+
+```powershell
+Set-Location C:\FactoryOps\app
+.\deploy\windows\Install-FactoryOps.ps1 -ProjectRoot C:\FactoryOps\app
+```
+
+The first run creates `.env` from `.env.production.example` and stops. Generate a secret, set `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`, then run the installer again. Production settings refuse a placeholder or short secret, an empty host list, and `ALLOWED_HOSTS=*`. `DEBUG` is forced off. The installer does not overwrite an existing `.env` and does not flush the database.
+
+### Service
+
+```powershell
+.\deploy\windows\Start-FactoryOps.ps1
+.\deploy\windows\Get-FactoryOpsStatus.ps1
+.\deploy\windows\Stop-FactoryOps.ps1
+.\deploy\windows\Restart-FactoryOps.ps1
+.\deploy\windows\Uninstall-FactoryOps.ps1
+```
+
+`FactoryOpsServer` is a Task Scheduler startup task running as SYSTEM. It restarts the Waitress process after a crash and ignores a second copy. Uninstall asks for confirmation and does not delete the database or `media\`.
+
+Health check (no secrets in the body): `http://127.0.0.1:8000/health/`
+
+### Display
+
+Create a standard local user, sign in once, then:
+
+```powershell
+.\deploy\windows\Register-FactoryOpsKiosk.ps1 -DisplayUser FactoryDisplay
+```
+
+The Startup shortcut opens Edge full screen at `FACTORYOPS_KIOSK_URL`, which must be the login page (`/accounts/login/`). No FactoryOps password is stored in the shortcut. Closing the browser leaves the server running. Leave kiosk mode with Ctrl+Alt+Del, then sign out or end Microsoft Edge. Automatic Windows sign-in is not configured.
+
+### Phones
+
+Reserve the PC's MAC address on the factory DHCP server. Add that IPv4 address to `ALLOWED_HOSTS` and `http://<address>:8000` to `CSRF_TRUSTED_ORIGINS`. Restart the server. Then:
+
+```powershell
+.\deploy\windows\Install-FactoryOpsFirewall.ps1 -Port 8000 -RemoteAddress LocalSubnet
+```
+
+Phones open `http://<factory-pc-address>:8000/accounts/login/`. The firewall rule is Private profile only and refuses an internet-wide remote address. Guest Wi-Fi isolation will block phones; fix that on the factory SSID, not by exposing the PC.
+
+Plain HTTP on the LAN can be read by anyone on that Wi-Fi. A later Caddy or IIS proxy on the same PC, plus `FACTORYOPS_USE_HTTPS=true` and `https://` CSRF origins, is the path to encrypted cookies. Do not enable an HTTPS redirect until that proxy is listening.
+
+### Backup and recovery
+
+Daily at 02:00, `Backup-FactoryOps.ps1` runs the SQLite backup API and copies `media` into `C:\FactoryOps\backups\<timestamp>\`. Retention defaults to 14 days. Failures are printed and written to `C:\FactoryOps\logs\operations.log`.
+
+```powershell
+.\deploy\windows\Backup-FactoryOps.ps1
+.\deploy\windows\Restore-FactoryOps.ps1 -Backup C:\FactoryOps\backups\<timestamp> -Destination C:\FactoryOps\restore-test
+```
+
+Restore asks for confirmation and will not overwrite the live database. Keep a second copy of the backup folder on removable media, and put the PC on a UPS that can shut Windows down cleanly.
+
+### Checklist
+
+Walk [the twelve acceptance checks](docs/windows-11-deployment.md#acceptance-checklist) on the factory PC. Automated tests cover configuration failure, health, media auth, Waitress, and backup/restore. Reboot, the Edge window, the firewall, and a phone still have to be confirmed on site.
 
 ---
 

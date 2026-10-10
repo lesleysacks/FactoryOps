@@ -26,6 +26,8 @@ from .querysets import (
     active_materials_for,
     batches_for_material,
     user_factory,
+    active_lines_for,
+    active_machines_for,
 )
 
 CONTROL_ATTRS = {
