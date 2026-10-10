@@ -10,6 +10,8 @@ from decimal import Decimal
 from django import forms
 from django.utils import timezone
 
+from apps.catalog.models import Packaging, Product, ProductVariant
+from apps.factories.models import ProductionLine
 from apps.machines.models import Machine
 from apps.materials.models import Material, MaterialAddition, MaterialBatch, StockRecord
 from apps.materials.workflow import record_material_consumption
@@ -344,3 +346,164 @@ class MaterialStateForm(OperatorCaptureForm):
             self.cleaned_data['roll_quantity'],
             self.cleaned_data['spare_roll_quantity'],
         )
+
+
+class RunConfigurationForm(forms.Form):
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.none(),
+        label='Product',
+        widget=forms.Select(attrs=CONTROL_ATTRS),
+    )
+    variant = forms.ModelChoiceField(
+        queryset=ProductVariant.objects.none(),
+        label='Variant',
+        widget=forms.Select(attrs=CONTROL_ATTRS),
+    )
+    packaging = forms.ModelChoiceField(
+        queryset=Packaging.objects.none(),
+        label='Packaging',
+        widget=forms.Select(attrs=CONTROL_ATTRS),
+    )
+    production_line = forms.ModelChoiceField(
+        queryset=ProductionLine.objects.none(),
+        label='Production line',
+        widget=forms.Select(attrs=CONTROL_ATTRS),
+    )
+    machine = forms.ModelChoiceField(
+        queryset=Machine.objects.none(),
+        label='Machine',
+        widget=forms.Select(attrs=CONTROL_ATTRS),
+    )
+    planned_pack_quantity = forms.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        min_value=Decimal('0.001'),
+        label='Planned pack quantity',
+        help_text='How many packs, for example 20 in 20 × 15s.',
+        widget=forms.NumberInput(attrs={**QUANTITY_ATTRS, 'min': '0.001'}),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        self.factory = user_factory(user)
+        self.fields['product'].queryset = Product.objects.filter(
+            factory=self.factory, is_active=True,
+        ) if self.factory else Product.objects.none()
+        self.fields['packaging'].queryset = Packaging.objects.filter(
+            factory=self.factory, is_active=True,
+        ) if self.factory else Packaging.objects.none()
+        self.fields['production_line'].queryset = active_lines_for(user)
+        product_id = None
+        line_id = None
+        if self.data:
+            product_id = self.data.get('product') or None
+            line_id = self.data.get('production_line') or None
+        variants = ProductVariant.objects.filter(is_active=True, product__factory=self.factory) if self.factory else ProductVariant.objects.none()
+        if product_id:
+            variants = variants.filter(product_id=product_id)
+        self.fields['variant'].queryset = variants
+        machines = active_machines_for(user)
+        if line_id:
+            machines = machines.filter(production_line_id=line_id)
+        self.fields['machine'].queryset = machines
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.factory is None:
+            raise forms.ValidationError(
+                'Your account is not assigned to a factory. Ask a supervisor to assign you.'
+            )
+        product = cleaned.get('product')
+        variant = cleaned.get('variant')
+        packaging = cleaned.get('packaging')
+        line = cleaned.get('production_line')
+        machine = cleaned.get('machine')
+        if product is not None and product.factory_id != self.factory.id:
+            self.add_error('product', 'This product does not belong to your factory.')
+        if variant is not None and product is not None and variant.product_id != product.id:
+            self.add_error('variant', 'This variant does not belong to the selected product.')
+        if packaging is not None and packaging.factory_id != self.factory.id:
+            self.add_error('packaging', 'This packaging does not belong to your factory.')
+        if line is not None and line.factory_id != self.factory.id:
+            self.add_error('production_line', 'This line does not belong to your factory.')
+        if machine is not None and line is not None and machine.production_line_id != line.id:
+            self.add_error('machine', 'This machine does not belong to the selected line.')
+        return cleaned
+
+
+class QCVerificationForm(forms.Form):
+    variant = forms.ModelChoiceField(
+        queryset=ProductVariant.objects.none(),
+        label='Confirmed variant',
+        widget=forms.Select(attrs=CONTROL_ATTRS),
+    )
+    packaging = forms.ModelChoiceField(
+        queryset=Packaging.objects.none(),
+        label='Confirmed packaging',
+        widget=forms.Select(attrs=CONTROL_ATTRS),
+    )
+    qc_verified_quantity = forms.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        min_value=Decimal('0'),
+        label='QC verified quantity',
+        help_text='Finished goods QC counted, in individual units.',
+        widget=forms.NumberInput(attrs=QUANTITY_ATTRS),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        factory = user_factory(user)
+        if factory is None:
+            self.fields['variant'].queryset = ProductVariant.objects.none()
+            self.fields['packaging'].queryset = Packaging.objects.none()
+        else:
+            self.fields['variant'].queryset = ProductVariant.objects.filter(
+                product__factory=factory, is_active=True,
+            ).select_related('product')
+            self.fields['packaging'].queryset = Packaging.objects.filter(
+                factory=factory, is_active=True,
+            )
+
+
+class QCPhotoForm(forms.Form):
+    image = forms.FileField(
+        label='QC photo',
+        widget=forms.ClearableFileInput(attrs={'class': 'input-control', 'accept': 'image/jpeg,image/png,image/webp'}),
+    )
+    caption = forms.CharField(
+        max_length=200,
+        required=False,
+        label='Caption',
+        widget=forms.TextInput(attrs=CONTROL_ATTRS),
+    )
+
+
+class VarianceCorrectionForm(forms.Form):
+    field = forms.ChoiceField(
+        label='Field',
+        choices=(
+            ('recorded_quantity', 'Operator recorded quantity'),
+            ('qc_verified_quantity', 'QC verified quantity'),
+        ),
+        widget=forms.Select(attrs=CONTROL_ATTRS),
+    )
+    new_value = forms.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        min_value=Decimal('0'),
+        label='New value',
+        widget=forms.NumberInput(attrs=QUANTITY_ATTRS),
+    )
+    reason = forms.CharField(
+        label='Reason',
+        widget=forms.Textarea(attrs={**CONTROL_ATTRS, 'rows': 3}),
+    )
+
+
+class AcceptVarianceForm(forms.Form):
+    reason = forms.CharField(
+        label='Why this variance is accepted',
+        widget=forms.Textarea(attrs={**CONTROL_ATTRS, 'rows': 3}),
+    )

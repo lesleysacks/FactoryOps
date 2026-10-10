@@ -5,6 +5,7 @@ FactoryOps Dashboard — navigation context for the application shell.
 from django.urls import reverse
 
 from apps.accounts.models import Role
+from apps.dashboard.permissions import QC_ROLES, SUPERVISOR_ROLES
 
 
 def navigation(request):
@@ -54,6 +55,18 @@ def navigation(request):
                 'label': 'Reports',
                 'url': reverse('dashboard:executive'),
             })
+        if user.role in QC_ROLES:
+            items.append({
+                'id': 'qc',
+                'label': 'QC',
+                'url': reverse('dashboard:qc_queue'),
+            })
+        if user.role in SUPERVISOR_ROLES:
+            items.append({
+                'id': 'exceptions',
+                'label': 'Exceptions',
+                'url': reverse('dashboard:exception_queue'),
+            })
         if user.role in (Role.SUPERVISOR, Role.ADMIN):
             items.append({
                 'id': 'admin',
@@ -83,6 +96,15 @@ def navigation(request):
         'stock_count_create': 'inventory',
         'stock_count_close': 'inventory',
         'material_receipt_create': 'inventory',
+        'configure_run': 'production',
+        'start_controlled_run': 'production',
+        'mark_output_recorded': 'production',
+        'submit_for_qc': 'production',
+        'cancel_controlled_run': 'production',
+        'qc_queue': 'qc',
+        'qc_verification': 'qc',
+        'exception_queue': 'exceptions',
+        'exception_detail': 'exceptions',
     }.get(url_name, '')
 
     return {

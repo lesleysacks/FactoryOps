@@ -14,7 +14,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from apps.production.models import ProductionRun, ProductionRunStatus
+from apps.production.models import ProductionRun, ProductionRunStatus, ProductionStage
+from apps.production.state_machine import gate_requirements
+from apps.production.variance import expected_individual_units, recorded_quantity_for_run
 from apps.production.workflow import (
     complete_production_run,
     current_material_states_for,
@@ -43,6 +45,20 @@ from .querysets import (
     production_runs_for,
     user_factory,
 )
+
+
+def _next_gate(run):
+    if not run.stage:
+        return None
+    nxt = {
+        ProductionStage.DRAFT: ProductionStage.INPUTS_COMPLETE,
+        ProductionStage.INPUTS_COMPLETE: ProductionStage.PRODUCTION_ACTIVE,
+        ProductionStage.PRODUCTION_ACTIVE: ProductionStage.OUTPUT_RECORDED,
+        ProductionStage.OUTPUT_RECORDED: ProductionStage.QC_REQUIRED,
+    }.get(run.stage)
+    if nxt is None:
+        return None
+    return gate_requirements(run, nxt)
 
 
 def _page(title, subtitle, trail):
@@ -174,7 +190,16 @@ def production_run(request, pk):
         'current_material_states': current_material_states_for(run),
         'form': form,
         'can_record_production': can_record_production(request.user),
+        'can_record_output': (
+            can_record_production(request.user)
+            and run.status == ProductionRunStatus.IN_PROGRESS
+            and (run.stage is None or run.stage == ProductionStage.PRODUCTION_ACTIVE)
+        ),
         'is_active_run': run.status == ProductionRunStatus.IN_PROGRESS,
+        'is_controlled_run': run.stage is not None,
+        'expected_quantity': expected_individual_units(run) if run.stage else None,
+        'recorded_quantity': recorded_quantity_for_run(run) if run.stage else None,
+        'next_gate': _next_gate(run),
     })
 
 

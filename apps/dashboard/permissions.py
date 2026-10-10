@@ -12,6 +12,7 @@ from apps.accounts.models import Role
 
 OPERATOR_ROLES = (Role.OPERATOR, Role.QC, Role.SUPERVISOR, Role.ADMIN)
 PRODUCTION_ROLES = (Role.OPERATOR, Role.SUPERVISOR, Role.ADMIN)
+QC_ROLES = (Role.QC, Role.SUPERVISOR, Role.ADMIN)
 SUPERVISOR_ROLES = (Role.SUPERVISOR, Role.ADMIN)
 MANAGER_ROLES = (Role.ADMIN,)
 EXECUTIVE_ROLES = (Role.ADMIN,)
@@ -32,6 +33,10 @@ def role_required(*roles):
 
 def can_record_production(user):
     return getattr(user, 'role', None) in PRODUCTION_ROLES
+
+
+def can_perform_qc(user):
+    return getattr(user, 'role', None) in QC_ROLES
 
 
 def home_dashboard_name(user):

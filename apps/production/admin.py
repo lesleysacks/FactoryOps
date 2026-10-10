@@ -5,6 +5,7 @@ FactoryOps Production — Django Admin Registration
 from django.contrib import admin
 
 from .models import (
+    FactoryProductionPolicy,
     FinishedGood,
     FinishedGoodAddition,
     FinishedGoodAdjustment,
@@ -15,6 +16,8 @@ from .models import (
     ProductionReject,
     ProductionRun,
     ProductionRunMaterialState,
+    QCPhoto,
+    QCVerification,
     Warehouse,
 )
 
@@ -27,6 +30,8 @@ class ProductionRunAdmin(admin.ModelAdmin):
         'production_line',
         'machine',
         'status',
+        'stage',
+        'product',
         'created_by',
         'started_at',
         'ended_at',
@@ -247,3 +252,40 @@ class FinishedGoodReconciliationAdmin(admin.ModelAdmin):
     def calculate_reconciliations(self, request, queryset):
         for reconciliation in queryset:
             reconciliation.calculate()
+
+
+@admin.register(FactoryProductionPolicy)
+class FactoryProductionPolicyAdmin(admin.ModelAdmin):
+    list_display = ('factory', 'tolerance_pct', 'min_qc_photos', 'updated_at')
+    list_select_related = ('factory',)
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(QCVerification)
+class QCVerificationAdmin(admin.ModelAdmin):
+    list_display = (
+        'production_run',
+        'status',
+        'variant',
+        'packaging',
+        'expected_quantity',
+        'recorded_quantity',
+        'qc_verified_quantity',
+        'verified_by',
+    )
+    list_filter = ('status', 'production_run__factory')
+    search_fields = ('production_run__reference',)
+    list_select_related = (
+        'production_run',
+        'variant',
+        'packaging',
+        'verified_by',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(QCPhoto)
+class QCPhotoAdmin(admin.ModelAdmin):
+    list_display = ('uploaded_at', 'qc_verification', 'uploaded_by', 'caption')
+    list_select_related = ('qc_verification', 'uploaded_by')
+    readonly_fields = ('created_at', 'updated_at', 'uploaded_at')

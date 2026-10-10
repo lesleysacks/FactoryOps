@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}{{ run.reference }} exception — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>{{ run.reference }}</h1>
+        <p>Controlled correction keeps the previous value in the audit trail.</p>
+    </div>
+
+    <div class="card">
+        <h2>Variance</h2>
+        <div class="table-wrap">
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Expected</th>
+                        <th>Recorded</th>
+                        <th>QC verified</th>
+                        <th>Recorded vs expected</th>
+                        <th>QC vs expected</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="mono">{% if variance.expected != None %}{{ variance.expected }}{% else %}—{% endif %}</td>
+                        <td class="mono">{% if variance.recorded != None %}{{ variance.recorded }}{% else %}—{% endif %}</td>
+                        <td class="mono">{% if variance.qc_verified != None %}{{ variance.qc_verified }}{% else %}—{% endif %}</td>
+                        <td class="mono">{% if variance.recorded_vs_expected != None %}{{ variance.recorded_vs_expected }}{% else %}—{% endif %}</td>
+                        <td class="mono">{% if variance.qc_vs_expected != None %}{{ variance.qc_vs_expected }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% status_tone variance.status as tone %}
+                            <span class="traffic {{ tone }}" aria-hidden="true"></span>
+                            {% include 'partials/badge.html' with label=variance.status tone=tone %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if can_resolve %}
+    <form method="post" class="card capture-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="form" value="correct">
+        <h2>Correct a QC quantity</h2>
+        <p class="muted" style="margin-bottom:0.75rem;">This does not rewrite the operator output row. The old QC value is stored on the audit event.</p>
+        {% for field in correction_form %}
+            <div class="field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Apply correction</button>
+        </div>
+    </form>
+
+    <form method="post" class="card capture-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="form" value="accept">
+        <h2>Accept the variance</h2>
+        {% for field in accept_form %}
+            <div class="field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Accept and complete</button>
+        </div>
+    </form>
+    {% endif %}
+
+    <div class="card">
+        <h2>Audit history</h2>
+        {% if events %}
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>When</th><th>Who</th><th>What</th><th>Field</th><th>Old</th><th>New</th><th>Why</th></tr></thead>
+                <tbody>
+                {% for event in events %}
+                    <tr>
+                        <td>{{ event.created_at }}</td>
+                        <td>{% if event.actor %}{{ event.actor.username }}{% else %}—{% endif %}</td>
+                        <td>{{ event.get_action_display }}</td>
+                        <td>{{ event.field_name|default:"—" }}</td>
+                        <td class="mono">{{ event.old_value|default:"—" }}</td>
+                        <td class="mono">{{ event.new_value|default:"—" }}</td>
+                        <td>{{ event.reason|default:"—" }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="empty">No audit events for this run yet.</p>
+        {% endif %}
+    </div>
+
+    <p><a class="btn btn-ghost" href="{% url 'dashboard:exception_queue' %}">Back to exceptions</a></p>
+</div>
+{% endblock %}
