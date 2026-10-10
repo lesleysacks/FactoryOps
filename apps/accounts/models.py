@@ -43,6 +43,15 @@ class User(AbstractUser):
         related_name='users',
         help_text="The factory this user is assigned to. Null for platform administrators.",
     )
+    assigned_machines = models.ManyToManyField(
+        'machines.Machine',
+        blank=True,
+        related_name='assigned_users',
+        help_text=(
+            'Printing-station operators may set up and run only these machines. '
+            'Leave empty for every other role.'
+        ),
+    )
 
     objects = UserManager()
 

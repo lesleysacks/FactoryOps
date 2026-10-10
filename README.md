@@ -75,9 +75,9 @@ Captures may go through **Django Admin** and/or the **operator floor UI** (inven
 
 | Role | Typical use in v1 |
 |---|---|
-| `OPERATOR` | Floor capture + operator dashboard |
-| `QC` | Same operator surfaces in v1 (no QC tables yet) |
-| `SUPERVISOR` | Supervisor + inventory dashboards; oversight |
+| `OPERATOR` | Floor capture + operator dashboard. Optional responsibility groups split printing-station setup from inventory capture. |
+| `QC` | QC queue and verification only. Cannot open production-run management. |
+| `SUPERVISOR` | Supervisor + inventory dashboards; oversight; can start runs |
 | `ADMIN` | Manager + executive dashboards; master data; full Admin |
 
 Login home (`/` and `/dashboard/`) redirects by role. Assign each user a `factory` so scoping works. Platform admins may leave factory blank to see all plants.

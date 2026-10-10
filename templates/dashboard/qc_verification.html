@@ -15,6 +15,55 @@
     </div>
 
     <div class="card">
+        <h2>Run context</h2>
+        <p>
+            Product: {% if run.product %}{{ run.product.name }}{% else %}—{% endif %}
+            · Variant: {% if run.variant %}{{ run.variant.name }}{% else %}—{% endif %}
+            · Packaging: {% if run.packaging %}{{ run.packaging.code }}{% else %}—{% endif %}
+        </p>
+        <p>
+            Machine: {% if run.machine %}{{ run.machine.code }} · {{ run.machine.name }}{% else %}—{% endif %}
+            {% if run.production_line %} · Line {{ run.production_line.name }}{% endif %}
+        </p>
+        {% if run.notes %}<p>Notes: {{ run.notes }}</p>{% endif %}
+        <h3 class="subhead">Output and finished goods</h3>
+        {% if outputs %}
+            <ul>
+            {% for output in outputs %}
+                <li>
+                    {{ output.output_name|default:"Output" }}
+                    · {{ output.quantity }}
+                    {% if output.finished_good %} · {{ output.finished_good.code }} {{ output.finished_good.name }}{% endif %}
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty">No operator output recorded.</p>
+        {% endif %}
+        <h3 class="subhead">Batches</h3>
+        {% if consumptions %}
+            <ul>
+            {% for item in consumptions %}
+                <li>{{ item.material.code }} · lot {{ item.batch.lot_number }} · {{ item.quantity }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty">No batch consumption recorded on this run.</p>
+        {% endif %}
+        <h3 class="subhead">Machine material</h3>
+        {% if material_states %}
+            <ul>
+            {% for state in material_states %}
+                <li>{{ state.material.code }} · on machine {{ state.roll_quantity }} · spare {{ state.spare_roll_quantity }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty">No machine material state recorded.</p>
+        {% endif %}
+        <p class="muted">This screen is read-only for operator output. QC photos are the printing evidence stored for the run. QC cannot open production-run management from here.</p>
+    </div>
+
+    <div class="card">
         <h2>Quantities</h2>
         <div class="table-wrap">
             <table class="data">

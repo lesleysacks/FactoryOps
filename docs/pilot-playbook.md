@@ -21,9 +21,17 @@ Do **not** try to replace finance, transport, or CRM in this pilot.
 | Floor recorder | OPERATOR | Yes, limited to operational models |
 | Shift lead | SUPERVISOR | Yes |
 | Plant lead | ADMIN | Yes |
-| QC inspector | QC | Optional; same screens as operator in v1 |
+| QC inspector | QC | QC queue only. Not the operator production screens. |
 
 Create users **before** day 1. Assign `factory`. Create at least one Admin who understands reconciliations.
+
+Pilot names are not hard-coded into screens. After the accounts exist, review a dry-run and then apply roles:
+
+`python manage.py assign_pilot_staff`
+
+`python manage.py assign_pilot_staff --apply`
+
+The command matches an existing username or first or last name of Lesley, Neville, Yolandi, or Frankie. It does not create accounts or set passwords. Then set Lesley's printing machines on the user in Admin.
 
 ## Week 0 — setup (half day)
 

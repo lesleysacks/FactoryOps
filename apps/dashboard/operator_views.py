@@ -12,7 +12,7 @@ from django.views.decorators.http import require_http_methods
 
 from .forms import MaterialReceiptForm, StockCloseForm, StockCountForm
 from .helpers import crumbs
-from .permissions import OPERATOR_ROLES, can_record_production, role_required
+from .permissions import can_record_production, inventory_required, production_required
 from .querysets import (
     active_machines_for,
     active_production_runs_for,
@@ -29,7 +29,7 @@ def _capture_page(title, subtitle, trail):
     }
 
 
-@role_required(*OPERATOR_ROLES)
+@inventory_required
 def operator_inventory(request):
     factory = user_factory(request.user)
     return render(request, 'dashboard/operator_inventory.html', {
@@ -43,7 +43,7 @@ def operator_inventory(request):
     })
 
 
-@role_required(*OPERATOR_ROLES)
+@production_required
 def operator_machine(request, pk):
     machine = get_object_or_404(active_machines_for(request.user), pk=pk)
     return render(request, 'dashboard/operator_machine.html', {
@@ -68,7 +68,7 @@ def operator_machine(request, pk):
     })
 
 
-@role_required(*OPERATOR_ROLES)
+@inventory_required
 @require_http_methods(['GET', 'POST'])
 def stock_count_create(request):
     factory = user_factory(request.user)
@@ -96,13 +96,14 @@ def stock_count_create(request):
     })
 
 
-@role_required(*OPERATOR_ROLES)
+@inventory_required
 @require_http_methods(['GET', 'POST'])
 def stock_count_close(request, pk):
     stock_record = get_object_or_404(open_stock_counts_for(request.user), pk=pk)
     form = StockCloseForm(
         request.POST if request.method == 'POST' else None,
         stock_record=stock_record,
+        user=request.user,
     )
     if request.method == 'POST' and form.is_valid():
         form.save()
@@ -127,7 +128,7 @@ def stock_count_close(request, pk):
     })
 
 
-@role_required(*OPERATOR_ROLES)
+@inventory_required
 @require_http_methods(['GET', 'POST'])
 def material_receipt_create(request):
     factory = user_factory(request.user)

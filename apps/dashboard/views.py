@@ -10,6 +10,8 @@ from django.shortcuts import redirect, render
 
 from . import services
 from .helpers import crumbs
+from apps.accounts.access import can_record_inventory
+
 from .permissions import (
     EXECUTIVE_ROLES,
     INVENTORY_ROLES,
@@ -50,6 +52,7 @@ def operator(request):
         'lines': list(active_lines_for(request.user)),
         'machines': list(active_machines_for(request.user)),
         'can_record_production': can_record_production(request.user),
+        'can_record_inventory': can_record_inventory(request.user),
     })
 
 
