@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'apps.downtime',
     'apps.dashboard',
     'apps.reports',
+    'apps.maintenance',
 ]
 
 MIDDLEWARE = [
