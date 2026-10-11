@@ -4,6 +4,8 @@ FactoryOps Production — Django Admin Registration
 
 from django.contrib import admin
 
+from apps.accounts.access import production_admin_allowed, scope_production_admin
+
 from .models import (
     FactoryProductionPolicy,
     FinishedGood,
@@ -22,8 +24,36 @@ from .models import (
 )
 
 
+class ProductionManagementAdmin(admin.ModelAdmin):
+    """Production-run admin follows the same role and machine limits as the floor."""
+
+    production_scope_prefix = ''
+
+    def has_module_permission(self, request):
+        return production_admin_allowed(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return production_admin_allowed(request.user)
+
+    def has_add_permission(self, request):
+        return production_admin_allowed(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        return production_admin_allowed(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        return production_admin_allowed(request.user)
+
+    def get_queryset(self, request):
+        return scope_production_admin(
+            super().get_queryset(request),
+            request.user,
+            self.production_scope_prefix,
+        )
+
+
 @admin.register(ProductionRun)
-class ProductionRunAdmin(admin.ModelAdmin):
+class ProductionRunAdmin(ProductionManagementAdmin):
     list_display = (
         'reference',
         'factory',
@@ -44,7 +74,8 @@ class ProductionRunAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProductionOutput)
-class ProductionOutputAdmin(admin.ModelAdmin):
+class ProductionOutputAdmin(ProductionManagementAdmin):
+    production_scope_prefix = 'production_run__'
     list_display = (
         'recorded_at',
         'production_run',
@@ -65,7 +96,8 @@ class ProductionOutputAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProductionRunMaterialState)
-class ProductionRunMaterialStateAdmin(admin.ModelAdmin):
+class ProductionRunMaterialStateAdmin(ProductionManagementAdmin):
+    production_scope_prefix = 'production_run__'
     list_display = (
         'recorded_at',
         'production_run',
@@ -86,7 +118,8 @@ class ProductionRunMaterialStateAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProductionReject)
-class ProductionRejectAdmin(admin.ModelAdmin):
+class ProductionRejectAdmin(ProductionManagementAdmin):
+    production_scope_prefix = 'production_run__'
     list_display = (
         'occurred_at',
         'production_run',

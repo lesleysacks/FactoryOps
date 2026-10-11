@@ -10,6 +10,7 @@ from decimal import Decimal
 from django import forms
 from django.utils import timezone
 
+from apps.accounts.access import assert_can_record_inventory
 from apps.catalog.models import Packaging, Product, ProductVariant
 from apps.factories.models import ProductionLine
 from apps.machines.models import Machine
@@ -108,6 +109,7 @@ class StockCountForm(OperatorCaptureForm):
         return cleaned
 
     def save(self):
+        assert_can_record_inventory(self.user)
         closing = self.cleaned_data.get('closing_quantity')
         return StockRecord.objects.create(
             factory=self.factory,
@@ -127,11 +129,13 @@ class StockCloseForm(forms.Form):
         widget=forms.NumberInput(attrs=QUANTITY_ATTRS),
     )
 
-    def __init__(self, *args, stock_record=None, **kwargs):
+    def __init__(self, *args, stock_record=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.stock_record = stock_record
+        self.user = user
 
     def save(self):
+        assert_can_record_inventory(self.user)
         self.stock_record.closing_quantity = self.cleaned_data['closing_quantity']
         self.stock_record.save()
         return self.stock_record
@@ -168,6 +172,7 @@ class MaterialReceiptForm(OperatorCaptureForm):
         return self.cleaned_data['lot_number'].strip()
 
     def save(self):
+        assert_can_record_inventory(self.user)
         material = self.cleaned_data['material']
         lot_number = self.cleaned_data['lot_number']
         batch, _created = MaterialBatch.objects.get_or_create(

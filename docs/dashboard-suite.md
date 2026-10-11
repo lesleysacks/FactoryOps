@@ -6,7 +6,8 @@ Login home (`/` and `/dashboard/`) redirects:
 
 | Role | Lands on |
 |---|---|
-| Operator, QC | `/operator/` |
+| Operator | `/operator/` |
+| QC | `/qc/` |
 | Supervisor | `/supervisor/` |
 | Admin | `/manager/` |
 
@@ -14,7 +15,7 @@ Login home (`/` and `/dashboard/`) redirects:
 
 | Dashboard | Path | OPERATOR | QC | SUPERVISOR | ADMIN |
 |---|---|---|---|---|---|
-| Operator | `/operator/` | Yes | Yes | Yes | Yes |
+| Operator | `/operator/` | Yes | No | Yes | Yes |
 | Supervisor | `/supervisor/` | No | No | Yes | Yes |
 | Inventory | `/inventory/` | No | No | Yes | Yes |
 | Manager | `/manager/` | No | No | No | Yes |

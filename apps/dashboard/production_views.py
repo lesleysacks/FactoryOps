@@ -31,10 +31,9 @@ from .forms import (
 )
 from .helpers import crumbs
 from .permissions import (
-    OPERATOR_ROLES,
-    PRODUCTION_ROLES,
     can_record_production,
-    role_required,
+    inventory_required,
+    production_required,
 )
 from .querysets import (
     active_lines_for,
@@ -80,7 +79,7 @@ def _validation_message(exc):
     return str(exc)
 
 
-@role_required(*OPERATOR_ROLES)
+@production_required
 def operator_production(request):
     factory = user_factory(request.user)
     today = timezone.now().date()
@@ -99,7 +98,7 @@ def operator_production(request):
     })
 
 
-@role_required(*OPERATOR_ROLES)
+@production_required
 @require_http_methods(['GET', 'POST'])
 def production_line(request, pk):
     line = get_object_or_404(active_lines_for(request.user), pk=pk)
@@ -137,7 +136,7 @@ def production_line(request, pk):
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_POST
 def machine_start(request, pk):
     machine = get_object_or_404(active_machines_for(request.user), pk=pk)
@@ -150,7 +149,7 @@ def machine_start(request, pk):
     return redirect('dashboard:production_run', pk=run.pk)
 
 
-@role_required(*OPERATOR_ROLES)
+@production_required
 @require_http_methods(['GET', 'POST'])
 def production_run(request, pk):
     run = get_object_or_404(production_runs_for(request.user), pk=pk)
@@ -203,7 +202,7 @@ def production_run(request, pk):
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@inventory_required
 @require_http_methods(['GET', 'POST'])
 def production_consumption(request, pk):
     run = get_object_or_404(active_production_runs_for(request.user), pk=pk)
@@ -248,7 +247,7 @@ def production_consumption(request, pk):
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_http_methods(['GET', 'POST'])
 def production_material_state(request, pk):
     run = get_object_or_404(active_production_runs_for(request.user), pk=pk)
@@ -284,7 +283,7 @@ def production_material_state(request, pk):
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_POST
 def production_complete(request, pk):
     try:

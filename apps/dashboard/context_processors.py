@@ -4,6 +4,7 @@ FactoryOps Dashboard — navigation context for the application shell.
 
 from django.urls import reverse
 
+from apps.accounts.access import can_manage_production, can_record_inventory
 from apps.accounts.models import Role
 from apps.dashboard.permissions import QC_ROLES, SUPERVISOR_ROLES
 
@@ -22,12 +23,13 @@ def navigation(request):
             'label': 'Operations',
             'url': reverse('dashboard:operator'),
         })
-        if user.role in (Role.OPERATOR, Role.QC):
+        if user.role == Role.OPERATOR and can_manage_production(user):
             items.append({
                 'id': 'production',
                 'label': 'Production',
                 'url': reverse('dashboard:operator_production'),
             })
+        if user.role == Role.OPERATOR and can_record_inventory(user):
             items.append({
                 'id': 'inventory',
                 'label': 'Inventory',

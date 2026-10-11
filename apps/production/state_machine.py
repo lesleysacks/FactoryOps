@@ -8,6 +8,11 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.access import (
+    assert_can_manage_production,
+    assert_machine_assignment,
+    can_manage_production,
+)
 from apps.accounts.models import Role
 from apps.audit.models import AuditAction
 from apps.audit.services import record_event
@@ -182,6 +187,8 @@ def transition(run, target, *, actor, reason='', enforce_role=True):
         )
     if enforce_role and getattr(actor, 'role', None) not in allowed[target]:
         raise ValidationError('You cannot perform this transition.')
+    if enforce_role and allowed[target] == PRODUCTION_ROLES and not can_manage_production(actor):
+        raise ValidationError('You cannot perform this transition.')
 
     with transaction.atomic():
         locked = ProductionRun.objects.select_for_update().select_related(
@@ -189,6 +196,8 @@ def transition(run, target, *, actor, reason='', enforce_role=True):
         ).get(pk=run.pk)
         if locked.stage != run.stage:
             raise ValidationError('This run changed before the transition completed.')
+        if enforce_role and allowed[target] == PRODUCTION_ROLES:
+            assert_machine_assignment(actor, locked.machine)
         previous = locked.stage
         if target == ProductionStage.PRODUCTION_ACTIVE and locked.started_at is None:
             locked.started_at = timezone.now()
@@ -235,6 +244,8 @@ def create_controlled_run(
 ):
     if getattr(user, 'role', None) not in PRODUCTION_ROLES:
         raise ValidationError('You cannot configure a production run.')
+    assert_can_manage_production(user)
+    assert_machine_assignment(user, machine)
     factory = _require_factory(user)
     now = timezone.now()
     with transaction.atomic():
