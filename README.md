@@ -422,6 +422,8 @@ python manage.py makemigrations
 python manage.py makemigrations --check
 python manage.py check
 python manage.py createsuperuser
+python manage.py assign_pilot_staff
+python manage.py assign_pilot_staff --apply
 python manage.py backup_factoryops --destination "$env:USERPROFILE\FactoryOpsBackups"
 python manage.py verify_restore --backup "$env:USERPROFILE\FactoryOpsBackups\<timestamp>" --destination "$env:TEMP\FactoryOpsRestoreRehearsal"
 python -m pytest

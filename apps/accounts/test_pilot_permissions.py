@@ -458,11 +458,18 @@ def test_pilot_assignment_dry_run_writes_nothing_and_apply_is_idempotent(factory
     assert {person['status'] for person in plan['people']} == {'missing'}
     out = StringIO()
     call_command('assign_pilot_staff', stdout=out)
-    assert 'dry-run' in out.getvalue()
+    report = out.getvalue()
+    assert 'dry-run' in report
+    assert 'Missing accounts: Lesley, Neville, Yolandi, Frankie' in report
+    assert 'exact username, first name, or last name' in report
+    assert 'create the four users in Admin' in report
     assert User.objects.count() == before_users
     assert Group.objects.count() == before_groups
-    with pytest.raises(CommandError):
+    with pytest.raises(CommandError) as refused:
         call_command('assign_pilot_staff', '--apply', stdout=StringIO())
+    message = str(refused.value)
+    assert 'Unresolved: Lesley (missing), Neville (missing), Yolandi (missing), Frankie (missing)' in message
+    assert 'does not create users' in message
     assert User.objects.count() == before_users
 
     lesley = _user('lesley', factory, Role.OPERATOR, first_name='Someone')

@@ -164,11 +164,44 @@ def apply_pilot_assignments():
     return plan
 
 
+MATCH_RULE = (
+    'Matching is exact username, first name, or last name '
+    '(case-insensitive). A partial name is not a match.'
+)
+
+NEXT_STEPS = (
+    'Next steps: create the four users in Admin if they are missing, '
+    'set each factory, re-run this dry-run, then run --apply, '
+    'then assign Lesley\'s printing machines in Admin.'
+)
+
+
+def unresolved_people(plan):
+    return [
+        person for person in plan['people'] if person['status'] != 'resolved'
+    ]
+
+
+def apply_refusal_message(plan):
+    unresolved = unresolved_people(plan)
+    if not unresolved:
+        return 'Pilot assignment was not applied. No accounts were changed.'
+    details = ', '.join(
+        f"{person['label']} ({person['status']})" for person in unresolved
+    )
+    return (
+        'Pilot assignment was not applied. No accounts were changed. '
+        f'Unresolved: {details}. {MATCH_RULE} '
+        'Accounts must already exist; this command does not create users.'
+    )
+
+
 def render_plan(plan):
     lines = [
         'FactoryOps V1 pilot assignment',
         'Mode: apply' if plan.get('applied') else 'Mode: dry-run (no accounts were changed)',
         'The command does not create users, set passwords, or grant superuser.',
+        MATCH_RULE,
     ]
     for person in plan['people']:
         lines.append(
@@ -192,12 +225,19 @@ def render_plan(plan):
         for note in person['manual']:
             lines.append(f'  needs confirmation: {note}')
         lines.append(f"  {person['note']}")
+    missing = [person['label'] for person in plan['people'] if person['status'] == 'missing']
+    if missing:
+        lines.append(
+            'Missing accounts: ' + ', '.join(missing) + '. '
+            'Create them in Django Admin first. This command will not invent users.'
+        )
     if plan.get('applied'):
         lines.append('Applied. Set Lesley\'s printing machines in Admin if they are still empty.')
     elif plan['can_apply']:
         lines.append('Dry-run only. Re-run with --apply to write roles and responsibilities.')
     else:
         lines.append('Not applied. Resolve every line above before using --apply.')
+        lines.append(NEXT_STEPS)
     return '\n'.join(lines)
 
 
@@ -221,4 +261,4 @@ class Command(BaseCommand):
             plan = plan_pilot_assignments()
         self.stdout.write(render_plan(plan))
         if options['apply'] and not plan['applied']:
-            raise CommandError('Pilot assignment was not applied. No accounts were changed.')
+            raise CommandError(apply_refusal_message(plan))
