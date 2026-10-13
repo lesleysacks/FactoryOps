@@ -2,18 +2,19 @@
 Assign V1 pilot roles and responsibilities to existing staff.
 
 This command never creates users, never sets a password, never grants
-superuser, and never changes a factory or assigned machines.
+superuser, and never changes a factory, staff flag, or assigned machines.
 
 Dry-run is the default and writes nothing:
 
     python manage.py assign_pilot_staff
 
-Apply only after every name matches exactly one existing user:
+Apply only after every exact username exists and is not a superuser:
 
     python manage.py assign_pilot_staff --apply
 
-Match rule: username, first name, or last name equals the person's name.
-A partial name is not a match. Two matches are ambiguous and block apply.
+Match rule: case-sensitive username. The accounts are Lesley, Neville,
+Yolandi, and Frankie. Username lesley is a different person and is never
+selected. A first name or last name is not a match.
 
 After apply, an administrator sets Lesley's printing machines on the user
 in Django Admin (Users → assigned machines). Re-running apply is safe.
@@ -22,7 +23,6 @@ in Django Admin (Users → assigned machines). Re-running apply is safe.
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.db.models import Q
 
 from apps.accounts.access import (
     INVENTORY,
@@ -36,27 +36,30 @@ from apps.accounts.models import Role
 
 User = get_user_model()
 
+# The administrator account. Case-sensitive, so this is not the operator Lesley.
+PROTECTED_USERNAME = 'lesley'
+
 PILOT_ASSIGNMENTS = (
     {
-        'label': 'Lesley',
+        'username': 'Lesley',
         'role': Role.OPERATOR,
         'groups': (PRINTING_STATION,),
         'note': 'Operator and Head of Printing Station. Assign printing machines in Admin.',
     },
     {
-        'label': 'Neville',
+        'username': 'Neville',
         'role': Role.OPERATOR,
         'groups': (INVENTORY,),
         'note': 'Operator and Inventory. Not a printing-station operator.',
     },
     {
-        'label': 'Yolandi',
+        'username': 'Yolandi',
         'role': Role.QC,
         'groups': (),
         'note': 'Quality control only. Do not grant the Operator role.',
     },
     {
-        'label': 'Frankie',
+        'username': 'Frankie',
         'role': Role.SUPERVISOR,
         'groups': (),
         'note': 'Supervisor. Must not be a Django superuser.',
@@ -64,40 +67,54 @@ PILOT_ASSIGNMENTS = (
 )
 
 
-def _matches(label):
-    return list(
-        User.objects.filter(
-            Q(username__iexact=label)
-            | Q(first_name__iexact=label)
-            | Q(last_name__iexact=label)
-        ).distinct().order_by('pk')
-    )
+def _exact_username_matches(username):
+    """Case-sensitive username match. A different capitalisation is ignored."""
+    return [
+        user for user in User.objects.filter(username=username).order_by('pk')
+        if user.username == username
+    ]
+
+
+def _blank_entry(spec):
+    return {
+        'label': spec['username'],
+        'username': '',
+        'planned_role': spec['role'],
+        'planned_groups': [
+            RESPONSIBILITY_LABELS[code] for code in spec['groups']
+        ],
+        'note': spec['note'],
+        'status': 'missing',
+        'user_id': None,
+        'current_role': '',
+        'factory': '',
+        'is_superuser': False,
+        'candidates': [],
+        'manual': [],
+    }
+
+
+def _remember_protected_account(entry, username):
+    if username == 'Lesley' and User.objects.filter(username=PROTECTED_USERNAME).exists():
+        entry['manual'].append(
+            f'Username {PROTECTED_USERNAME} is a different account and was not selected.'
+        )
 
 
 def plan_pilot_assignments():
     people = []
     for spec in PILOT_ASSIGNMENTS:
-        matches = _matches(spec['label'])
-        entry = {
-            'label': spec['label'],
-            'planned_role': spec['role'],
-            'planned_groups': [
-                RESPONSIBILITY_LABELS[code] for code in spec['groups']
-            ],
-            'note': spec['note'],
-            'status': 'missing',
-            'username': '',
-            'user_id': None,
-            'current_role': '',
-            'factory': '',
-            'is_superuser': False,
-            'candidates': [],
-            'manual': [],
-        }
+        username = spec['username']
+        matches = _exact_username_matches(username)
+        entry = _blank_entry(spec)
+        _remember_protected_account(entry, username)
         if len(matches) > 1:
             entry['status'] = 'ambiguous'
             entry['candidates'] = [user.username for user in matches]
-            entry['manual'].append('More than one account matches. Choose the account by hand.')
+            entry['manual'].append(
+                'More than one account has this exact username. '
+                'The command will not choose one.'
+            )
         elif len(matches) == 1:
             user = matches[0]
             entry['username'] = user.username
@@ -105,10 +122,10 @@ def plan_pilot_assignments():
             entry['current_role'] = user.role
             entry['is_superuser'] = user.is_superuser
             entry['factory'] = user.factory.name if user.factory_id else ''
-            if user.is_superuser:
+            if user.is_superuser or user.username == PROTECTED_USERNAME:
                 entry['status'] = 'blocked'
                 entry['manual'].append(
-                    'This account is a superuser. The command will not change that.'
+                    'This account is protected. The command will not change it.'
                 )
             else:
                 entry['status'] = 'resolved'
@@ -116,13 +133,13 @@ def plan_pilot_assignments():
                     entry['manual'].append(
                         'No factory is set. The command will not guess one.'
                     )
-                if spec['label'] == 'Lesley':
+                if username == 'Lesley':
                     entry['manual'].append(
                         'Assigned printing machines are not changed. Set them in Admin.'
                     )
         else:
             entry['manual'].append(
-                'No account has this exact username, first name, or last name.'
+                'No account has this exact case-sensitive username.'
             )
         people.append(entry)
     return {
@@ -132,6 +149,21 @@ def plan_pilot_assignments():
     }
 
 
+def _reject_locked_user(entry, user):
+    if user.username != entry['username']:
+        entry['status'] = 'blocked'
+        entry['manual'].append('The account username changed before apply.')
+        return True
+    if user.is_superuser or user.username == PROTECTED_USERNAME:
+        entry['status'] = 'blocked'
+        entry['is_superuser'] = user.is_superuser
+        entry['manual'].append(
+            'This account is protected. The command will not change it.'
+        )
+        return True
+    return False
+
+
 def apply_pilot_assignments():
     plan = plan_pilot_assignments()
     if not plan['can_apply']:
@@ -139,13 +171,19 @@ def apply_pilot_assignments():
     with transaction.atomic():
         locked = []
         for entry in plan['people']:
-            user = User.objects.select_for_update().get(pk=entry['user_id'])
-            if user.is_superuser:
-                entry['status'] = 'blocked'
+            try:
+                user = User.objects.select_for_update().get(pk=entry['user_id'])
+            except User.DoesNotExist:
+                entry['status'] = 'missing'
                 entry['manual'].append(
-                    'This account is a superuser. The command will not change that.'
+                    'The account disappeared before apply. Nothing was written.'
                 )
                 plan['can_apply'] = False
+                transaction.set_rollback(True)
+                return plan
+            if _reject_locked_user(entry, user):
+                plan['can_apply'] = False
+                transaction.set_rollback(True)
                 return plan
             locked.append(user)
         groups = ensure_responsibility_groups()
@@ -165,14 +203,17 @@ def apply_pilot_assignments():
 
 
 MATCH_RULE = (
-    'Matching is exact username, first name, or last name '
-    '(case-insensitive). A partial name is not a match.'
+    'Matching is the exact case-sensitive username '
+    'Lesley, Neville, Yolandi, or Frankie. '
+    'Username lesley is never selected. '
+    'A first name or last name is not a match.'
 )
 
 NEXT_STEPS = (
-    'Next steps: create the four users in Admin if they are missing, '
+    'Next steps: create any missing username in Admin, '
     'set each factory, re-run this dry-run, then run --apply, '
-    'then assign Lesley\'s printing machines in Admin.'
+    'then assign Lesley\'s printing machines in Admin. '
+    'Do not change the lesley administrator here.'
 )
 
 
@@ -229,7 +270,8 @@ def render_plan(plan):
     if missing:
         lines.append(
             'Missing accounts: ' + ', '.join(missing) + '. '
-            'Create them in Django Admin first. This command will not invent users.'
+            'Create those exact usernames in Django Admin first. '
+            'This command will not invent users.'
         )
     if plan.get('applied'):
         lines.append('Applied. Set Lesley\'s printing machines in Admin if they are still empty.')
@@ -243,15 +285,16 @@ def render_plan(plan):
 
 class Command(BaseCommand):
     help = (
-        'Dry-run or apply V1 pilot roles for Lesley, Neville, Yolandi, and Frankie. '
-        'Matches existing accounts only. Does not create users or set passwords.'
+        'Dry-run or apply V1 pilot roles for usernames Lesley, Neville, '
+        'Yolandi, and Frankie. Does not create users, set passwords, '
+        'or change the lesley administrator.'
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--apply',
             action='store_true',
-            help='Write roles and responsibility groups. Refused when any person is unresolved.',
+            help='Write roles and responsibility groups. Refused when any username is unsafe.',
         )
 
     def handle(self, *args, **options):

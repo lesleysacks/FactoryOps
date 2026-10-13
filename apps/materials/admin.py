@@ -4,6 +4,9 @@ FactoryOps Materials — Django Admin Registration
 
 from django.contrib import admin
 
+from apps.accounts.access import configuration_admin_allowed, inventory_admin_allowed
+from apps.accounts.admin_access import RoleBoundAdminMixin
+
 from .models import (
     Material,
     MaterialAddition,
@@ -34,7 +37,9 @@ class UserFactoryAdminMixin:
 
 
 @admin.register(UnitOfMeasure)
-class UnitOfMeasureAdmin(admin.ModelAdmin):
+class UnitOfMeasureAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(configuration_admin_allowed)
+    factory_lookup = None
     list_display = ('name', 'symbol', 'is_active', 'created_at')
     list_filter = ('is_active',)
     search_fields = ('name', 'symbol')
@@ -42,15 +47,19 @@ class UnitOfMeasureAdmin(admin.ModelAdmin):
 
 
 @admin.register(MaterialCategory)
-class MaterialCategoryAdmin(UserFactoryAdminMixin, admin.ModelAdmin):
+class MaterialCategoryAdmin(RoleBoundAdminMixin, UserFactoryAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(configuration_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = ('name', 'factory', 'is_active', 'created_at')
-    list_filter = ('factory', 'is_active')
+    list_filter = (('factory', admin.RelatedOnlyFieldListFilter), 'is_active')
     search_fields = ('name', 'factory__name')
     readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(Material)
-class MaterialAdmin(UserFactoryAdminMixin, admin.ModelAdmin):
+class MaterialAdmin(RoleBoundAdminMixin, UserFactoryAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(configuration_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'code',
         'name',
@@ -61,7 +70,12 @@ class MaterialAdmin(UserFactoryAdminMixin, admin.ModelAdmin):
         'target_stock',
         'is_active',
     )
-    list_filter = ('factory', 'category', 'unit', 'is_active')
+    list_filter = (
+        ('factory', admin.RelatedOnlyFieldListFilter),
+        ('category', admin.RelatedOnlyFieldListFilter),
+        ('unit', admin.RelatedOnlyFieldListFilter),
+        'is_active',
+    )
     search_fields = ('name', 'code', 'factory__name', 'category__name')
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
@@ -81,7 +95,9 @@ class MaterialAdmin(UserFactoryAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(StockRecord)
-class StockRecordAdmin(admin.ModelAdmin):
+class StockRecordAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(inventory_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'recording_date',
         'factory',
@@ -89,7 +105,11 @@ class StockRecordAdmin(admin.ModelAdmin):
         'opening_quantity',
         'closing_quantity',
     )
-    list_filter = ('factory', 'material', 'recording_date')
+    list_filter = (
+        ('factory', admin.RelatedOnlyFieldListFilter),
+        ('material', admin.RelatedOnlyFieldListFilter),
+        'recording_date',
+    )
     search_fields = ('material__code', 'material__name', 'factory__name')
     list_select_related = ('factory', 'material')
     readonly_fields = ('created_at', 'updated_at')
@@ -108,16 +128,23 @@ class StockRecordAdmin(admin.ModelAdmin):
 
 
 @admin.register(MaterialBatch)
-class MaterialBatchAdmin(admin.ModelAdmin):
+class MaterialBatchAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(inventory_admin_allowed)
+    factory_lookup = 'material__factory_id'
     list_display = ('lot_number', 'material', 'created_at')
-    list_filter = ('material__factory', 'material')
+    list_filter = (
+        ('material__factory', admin.RelatedOnlyFieldListFilter),
+        ('material', admin.RelatedOnlyFieldListFilter),
+    )
     search_fields = ('lot_number', 'material__code', 'material__name')
     list_select_related = ('material', 'material__factory')
     readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(MaterialAddition)
-class MaterialAdditionAdmin(admin.ModelAdmin):
+class MaterialAdditionAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(inventory_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'added_at',
         'factory',
@@ -125,7 +152,11 @@ class MaterialAdditionAdmin(admin.ModelAdmin):
         'batch',
         'quantity',
     )
-    list_filter = ('factory', 'material', 'added_at')
+    list_filter = (
+        ('factory', admin.RelatedOnlyFieldListFilter),
+        ('material', admin.RelatedOnlyFieldListFilter),
+        'added_at',
+    )
     search_fields = (
         'material__code',
         'material__name',
@@ -149,7 +180,9 @@ class MaterialAdditionAdmin(admin.ModelAdmin):
 
 
 @admin.register(MaterialConsumption)
-class MaterialConsumptionAdmin(admin.ModelAdmin):
+class MaterialConsumptionAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(inventory_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'consumed_at',
         'factory',
@@ -160,7 +193,12 @@ class MaterialConsumptionAdmin(admin.ModelAdmin):
         'recorded_by',
         'production_reference',
     )
-    list_filter = ('factory', 'material', 'production_run', 'consumed_at')
+    list_filter = (
+        ('factory', admin.RelatedOnlyFieldListFilter),
+        ('material', admin.RelatedOnlyFieldListFilter),
+        ('production_run', admin.RelatedOnlyFieldListFilter),
+        'consumed_at',
+    )
     search_fields = (
         'material__code',
         'material__name',
@@ -194,7 +232,9 @@ class MaterialConsumptionAdmin(admin.ModelAdmin):
 
 
 @admin.register(MaterialWaste)
-class MaterialWasteAdmin(admin.ModelAdmin):
+class MaterialWasteAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(inventory_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'occurred_at',
         'factory',
@@ -202,7 +242,11 @@ class MaterialWasteAdmin(admin.ModelAdmin):
         'quantity',
         'reason',
     )
-    list_filter = ('factory', 'material', 'occurred_at')
+    list_filter = (
+        ('factory', admin.RelatedOnlyFieldListFilter),
+        ('material', admin.RelatedOnlyFieldListFilter),
+        'occurred_at',
+    )
     search_fields = (
         'material__code',
         'material__name',
@@ -215,7 +259,9 @@ class MaterialWasteAdmin(admin.ModelAdmin):
 
 
 @admin.register(MaterialScrap)
-class MaterialScrapAdmin(admin.ModelAdmin):
+class MaterialScrapAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(inventory_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'occurred_at',
         'factory',
@@ -223,7 +269,11 @@ class MaterialScrapAdmin(admin.ModelAdmin):
         'quantity',
         'reason',
     )
-    list_filter = ('factory', 'material', 'occurred_at')
+    list_filter = (
+        ('factory', admin.RelatedOnlyFieldListFilter),
+        ('material', admin.RelatedOnlyFieldListFilter),
+        'occurred_at',
+    )
     search_fields = (
         'material__code',
         'material__name',
@@ -236,7 +286,9 @@ class MaterialScrapAdmin(admin.ModelAdmin):
 
 
 @admin.register(StockReconciliation)
-class StockReconciliationAdmin(admin.ModelAdmin):
+class StockReconciliationAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(inventory_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'reconciliation_date',
         'factory',
@@ -245,7 +297,11 @@ class StockReconciliationAdmin(admin.ModelAdmin):
         'actual_closing_quantity',
         'variance_quantity',
     )
-    list_filter = ('factory', 'material', 'reconciliation_date')
+    list_filter = (
+        ('factory', admin.RelatedOnlyFieldListFilter),
+        ('material', admin.RelatedOnlyFieldListFilter),
+        'reconciliation_date',
+    )
     search_fields = ('material__code', 'material__name', 'factory__name', 'notes')
     list_select_related = ('factory', 'material')
     readonly_fields = (
