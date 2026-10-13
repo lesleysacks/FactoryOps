@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from apps.accounts.access import can_manage_production, can_record_inventory
 from apps.accounts.models import Role
-from apps.dashboard.permissions import QC_ROLES, SUPERVISOR_ROLES
+from apps.dashboard.permissions import OPERATOR_ROLES, QC_ROLES, SUPERVISOR_ROLES
 
 
 def navigation(request):
@@ -18,11 +18,12 @@ def navigation(request):
             'label': 'Dashboard',
             'url': reverse('dashboard:home'),
         })
-        items.append({
-            'id': 'operations',
-            'label': 'Operations',
-            'url': reverse('dashboard:operator'),
-        })
+        if user.role in OPERATOR_ROLES:
+            items.append({
+                'id': 'operations',
+                'label': 'Operations',
+                'url': reverse('dashboard:operator'),
+            })
         if user.role == Role.OPERATOR and can_manage_production(user):
             items.append({
                 'id': 'production',
@@ -69,7 +70,9 @@ def navigation(request):
                 'label': 'Exceptions',
                 'url': reverse('dashboard:exception_queue'),
             })
-        if user.role in (Role.SUPERVISOR, Role.ADMIN):
+        if user.role in (Role.SUPERVISOR, Role.ADMIN) and (
+            user.is_staff or user.is_superuser
+        ):
             items.append({
                 'id': 'admin',
                 'label': 'Admin',
