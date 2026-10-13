@@ -31,7 +31,7 @@ Pilot names are not hard-coded into screens. After the accounts exist, review a 
 
 `python manage.py assign_pilot_staff --apply`
 
-The command matches an existing username or first or last name of Lesley, Neville, Yolandi, or Frankie (exact, case-insensitive). It does not create accounts or set passwords. A dry-run still prints a report when names are missing. `--apply` refuses and exits non-zero until each name matches exactly one existing account. Then set Lesley's printing machines on the user in Admin.
+The command selects the existing usernames `Lesley`, `Neville`, `Yolandi`, and `Frankie` with case-sensitive matching. It does not match a first or last name, and it never selects the administrator account `lesley`. It does not create accounts, set passwords, change factories, assign machines, or grant superuser. A dry-run still prints a report when a username is missing. `--apply` refuses and exits non-zero until every username exists, is unique, and is not a superuser. Then set Lesley's printing machines on that user in Admin.
 
 On Windows, activate `.venv` first (`.\.venv\Scripts\Activate.ps1`) so `python manage.py` resolves. If Django says the command is unknown, this checkout does not include `apps/accounts/management/commands/assign_pilot_staff.py` (added in pull request #7). Fetch that commit instead of merging over uncommitted work.
 

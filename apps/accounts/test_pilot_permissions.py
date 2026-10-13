@@ -13,6 +13,7 @@ from django.urls import reverse
 
 from apps.accounts.access import INVENTORY, PRINTING_STATION, ensure_responsibility_groups
 from apps.accounts.management.commands.assign_pilot_staff import (
+    _exact_username_matches,
     apply_pilot_assignments,
     plan_pilot_assignments,
 )
@@ -461,8 +462,9 @@ def test_pilot_assignment_dry_run_writes_nothing_and_apply_is_idempotent(factory
     report = out.getvalue()
     assert 'dry-run' in report
     assert 'Missing accounts: Lesley, Neville, Yolandi, Frankie' in report
-    assert 'exact username, first name, or last name' in report
-    assert 'create the four users in Admin' in report
+    assert 'case-sensitive username' in report
+    assert 'Username lesley is never selected' in report
+    assert 'Create those exact usernames in Django Admin' in report
     assert User.objects.count() == before_users
     assert Group.objects.count() == before_groups
     with pytest.raises(CommandError) as refused:
@@ -472,18 +474,19 @@ def test_pilot_assignment_dry_run_writes_nothing_and_apply_is_idempotent(factory
     assert 'does not create users' in message
     assert User.objects.count() == before_users
 
-    lesley = _user('lesley', factory, Role.OPERATOR, first_name='Someone')
-    neville = _user('stores', factory, Role.QC, first_name='Neville')
-    yolandi = _user('inspector', factory, Role.OPERATOR, first_name='Yolandi')
-    frankie = _user('lead', factory, Role.OPERATOR, first_name='Frankie')
+    lesley = _user('Lesley', factory, Role.OPERATOR, first_name='Someone')
+    neville = _user('Neville', factory, Role.QC, first_name='Stores')
+    yolandi = _user('Yolandi', factory, Role.OPERATOR, first_name='Inspector')
+    frankie = _user('Frankie', factory, Role.OPERATOR, first_name='Lead')
     lesley_hash = lesley.password
     frankie_staff = frankie.is_staff
+    lesley_factory = lesley.factory_id
     plan = plan_pilot_assignments()
     assert plan['can_apply'] is True
     text = StringIO()
     call_command('assign_pilot_staff', stdout=text)
     report = text.getvalue()
-    assert 'Lesley: resolved' in report
+    assert 'Lesley: resolved username=Lesley' in report
     assert 'Assigned printing machines' in report
     assert lesley.password not in report
 
@@ -497,6 +500,8 @@ def test_pilot_assignment_dry_run_writes_nothing_and_apply_is_idempotent(factory
     assert set(lesley.groups.values_list('name', flat=True)) == {PRINTING_STATION}
     assert lesley.assigned_machines.count() == 0
     assert lesley.password == lesley_hash
+    assert lesley.factory_id == lesley_factory
+    assert lesley.is_staff is False
     assert neville.role == Role.OPERATOR
     assert set(neville.groups.values_list('name', flat=True)) == {INVENTORY}
     assert yolandi.role == Role.QC
@@ -509,23 +514,208 @@ def test_pilot_assignment_dry_run_writes_nothing_and_apply_is_idempotent(factory
     assert lesley.password == lesley_hash
     assert set(lesley.groups.values_list('name', flat=True)) == {PRINTING_STATION}
 
-    _user('lesley-2', factory, Role.OPERATOR, first_name='Lesley')
-    blocked = plan_pilot_assignments()
-    assert blocked['can_apply'] is False
-    assert any(person['status'] == 'ambiguous' for person in blocked['people'])
-    yolandi_role = yolandi.role
-    refused = apply_pilot_assignments()
-    assert refused['applied'] is False
-    yolandi.refresh_from_db()
-    assert yolandi.role == yolandi_role
-
-    superuser = User.objects.create_superuser(
+    namesake = _user('lesley-2', factory, Role.OPERATOR, first_name='Lesley')
+    other_frankie = User.objects.create_superuser(
         username='root-frankie',
         email='root@factoryops.local',
         password=PASSWORD,
         first_name='Frankie',
     )
-    super_plan = plan_pilot_assignments()
-    frankie_row = next(person for person in super_plan['people'] if person['label'] == 'Frankie')
-    assert frankie_row['status'] == 'ambiguous'
-    assert superuser.is_superuser is True
+    still_ready = plan_pilot_assignments()
+    assert still_ready['can_apply'] is True
+    apply_pilot_assignments()
+    namesake.refresh_from_db()
+    other_frankie.refresh_from_db()
+    assert namesake.role == Role.OPERATOR
+    assert namesake.groups.count() == 0
+    assert other_frankie.is_superuser is True
+    assert other_frankie.role == Role.ADMIN
+
+
+def _pilot_accounts(factory):
+    protected = User.objects.create_superuser(
+        username='lesley',
+        email='lesley-admin@factoryops.local',
+        password=PASSWORD,
+    )
+    protected.factory = factory
+    protected.role = Role.ADMIN
+    protected.save(update_fields=['factory', 'role'])
+    _grant(protected, INVENTORY)
+    lesley = _user('Lesley', factory, Role.QC, first_name='Lesley')
+    _grant(lesley, INVENTORY)
+    neville = _user('Neville', factory, Role.QC, first_name='Neville')
+    yolandi = _user('Yolandi', factory, Role.OPERATOR, first_name='Yolandi')
+    _grant(yolandi, PRINTING_STATION)
+    frankie = _user('Frankie', factory, Role.OPERATOR, first_name='Frankie')
+    ruby = _user('RubyAdmin', factory, Role.SUPERVISOR, first_name='Ruby')
+    demo = _user('TEST002', factory, Role.OPERATOR, first_name='Test')
+    return {
+        'protected': protected,
+        'lesley': lesley,
+        'neville': neville,
+        'yolandi': yolandi,
+        'frankie': frankie,
+        'ruby': ruby,
+        'demo': demo,
+    }
+
+
+def _snapshot(user):
+    user.refresh_from_db()
+    return {
+        'role': user.role,
+        'password': user.password,
+        'is_superuser': user.is_superuser,
+        'is_staff': user.is_staff,
+        'is_active': user.is_active,
+        'factory_id': user.factory_id,
+        'groups': set(user.groups.values_list('name', flat=True)),
+        'machines': set(user.assigned_machines.values_list('pk', flat=True)),
+    }
+
+
+@pytest.mark.django_db
+def test_pilot_assignment_keeps_lesley_superuser_and_selects_lesley_operator(
+    factory, press
+):
+    people = _pilot_accounts(factory)
+    protected = people['protected']
+    lesley = people['lesley']
+    lesley.assigned_machines.add(press)
+    protected.assigned_machines.add(press)
+    before = {key: _snapshot(user) for key, user in people.items()}
+
+    plan = plan_pilot_assignments()
+    lesley_row = next(person for person in plan['people'] if person['label'] == 'Lesley')
+    assert plan['can_apply'] is True
+    assert lesley_row['status'] == 'resolved'
+    assert lesley_row['username'] == 'Lesley'
+    assert lesley_row['user_id'] == lesley.pk
+    selected_ids = {person['user_id'] for person in plan['people']}
+    assert protected.pk not in selected_ids
+    assert {person['label'] for person in plan['people']} == {
+        'Lesley', 'Neville', 'Yolandi', 'Frankie',
+    }
+
+    report = StringIO()
+    call_command('assign_pilot_staff', stdout=report)
+    text = report.getvalue()
+    assert 'dry-run' in text
+    assert 'username=Lesley' in text
+    assert 'Username lesley is a different account and was not selected.' in text
+    for key, user in people.items():
+        assert _snapshot(user) == before[key]
+
+    applied = apply_pilot_assignments()
+    assert applied['applied'] is True
+    lesley.refresh_from_db()
+    neville = people['neville']
+    yolandi = people['yolandi']
+    frankie = people['frankie']
+    neville.refresh_from_db()
+    yolandi.refresh_from_db()
+    frankie.refresh_from_db()
+    assert lesley.role == Role.OPERATOR
+    assert set(lesley.groups.values_list('name', flat=True)) == {PRINTING_STATION}
+    assert set(lesley.assigned_machines.values_list('pk', flat=True)) == {press.pk}
+    assert lesley.factory_id == factory.id
+    assert lesley.is_staff is False
+    assert lesley.is_superuser is False
+    assert lesley.password == before['lesley']['password']
+    assert neville.role == Role.OPERATOR
+    assert set(neville.groups.values_list('name', flat=True)) == {INVENTORY}
+    assert yolandi.role == Role.QC
+    assert set(yolandi.groups.values_list('name', flat=True)) == set()
+    assert frankie.role == Role.SUPERVISOR
+    assert frankie.is_superuser is False
+    assert frankie.is_staff is before['frankie']['is_staff']
+    assert set(frankie.groups.values_list('name', flat=True)) == set()
+
+    protected.refresh_from_db()
+    assert protected.username == 'lesley'
+    assert protected.role == Role.ADMIN
+    assert protected.is_superuser is True
+    assert protected.is_staff is True
+    assert protected.factory_id == factory.id
+    assert protected.password == before['protected']['password']
+    assert set(protected.groups.values_list('name', flat=True)) == {INVENTORY}
+    assert set(protected.assigned_machines.values_list('pk', flat=True)) == {press.pk}
+    people['ruby'].refresh_from_db()
+    people['demo'].refresh_from_db()
+    assert people['ruby'].role == Role.SUPERVISOR
+    assert people['ruby'].is_active is True
+    assert people['demo'].role == Role.OPERATOR
+    assert people['demo'].is_active is True
+
+    apply_pilot_assignments()
+    lesley.refresh_from_db()
+    assert lesley.role == Role.OPERATOR
+    assert set(lesley.groups.values_list('name', flat=True)) == {PRINTING_STATION}
+    protected.refresh_from_db()
+    assert protected.is_superuser is True
+    assert protected.role == Role.ADMIN
+
+
+@pytest.mark.django_db
+def test_unsafe_pilot_target_refuses_the_whole_plan(factory, monkeypatch):
+    people = _pilot_accounts(factory)
+    lesley = people['lesley']
+    protected = people['protected']
+    frankie = people['frankie']
+    people['neville'].delete()
+    lesley_before = _snapshot(lesley)
+    protected_before = _snapshot(protected)
+    refused = apply_pilot_assignments()
+    assert refused['applied'] is False
+    assert any(
+        person['status'] == 'missing' and person['label'] == 'Neville'
+        for person in refused['people']
+    )
+    assert _snapshot(lesley) == lesley_before
+    assert _snapshot(protected) == protected_before
+    with pytest.raises(CommandError):
+        call_command('assign_pilot_staff', '--apply', stdout=StringIO())
+    assert _snapshot(lesley) == lesley_before
+
+    _user('Neville', factory, Role.OPERATOR)
+    frankie.is_superuser = True
+    frankie.save(update_fields=['is_superuser'])
+    blocked = plan_pilot_assignments()
+    assert blocked['can_apply'] is False
+    frankie_row = next(person for person in blocked['people'] if person['label'] == 'Frankie')
+    assert frankie_row['status'] == 'blocked'
+    assert frankie_row['is_superuser'] is True
+    frankie_before = _snapshot(frankie)
+    lesley_before = _snapshot(lesley)
+    assert apply_pilot_assignments()['applied'] is False
+    assert _snapshot(frankie) == frankie_before
+    assert _snapshot(lesley) == lesley_before
+    assert _snapshot(protected) == protected_before
+
+    frankie.is_superuser = False
+    frankie.save(update_fields=['is_superuser'])
+    lesley.role = Role.QC
+    lesley.save(update_fields=['role'])
+    neville = User.objects.get(username='Neville')
+
+    def doubled(username):
+        matches = _exact_username_matches(username)
+        if username == 'Lesley':
+            return [lesley, neville]
+        return matches
+
+    monkeypatch.setattr(
+        'apps.accounts.management.commands.assign_pilot_staff._exact_username_matches',
+        doubled,
+    )
+    duplicate = plan_pilot_assignments()
+    assert duplicate['can_apply'] is False
+    lesley_row = next(person for person in duplicate['people'] if person['label'] == 'Lesley')
+    assert lesley_row['status'] == 'ambiguous'
+    assert apply_pilot_assignments()['applied'] is False
+    lesley.refresh_from_db()
+    assert lesley.role == Role.QC
+    protected.refresh_from_db()
+    assert protected.username == 'lesley'
+    assert protected.is_superuser is True
