@@ -1,0 +1,51 @@
+# FactoryOps CI uses pip, matching README and docs/setup.md.
+# The previous workflow was the GitHub conda starter. It failed because
+# environment.yml has never existed in this repository. Django 6.1
+# requires Python >= 3.12, so the starter's Python 3.10 pin was also wrong.
+
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Django check
+        env:
+          SECRET_KEY: ci-not-a-production-secret
+          DEBUG: "True"
+          ALLOWED_HOSTS: localhost,127.0.0.1
+        run: python manage.py check
+
+      - name: Migration check
+        env:
+          SECRET_KEY: ci-not-a-production-secret
+          DEBUG: "True"
+          ALLOWED_HOSTS: localhost,127.0.0.1
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Test
+        env:
+          SECRET_KEY: ci-not-a-production-secret
+          DEBUG: "True"
+          ALLOWED_HOSTS: localhost,127.0.0.1
+        run: python -m pytest
