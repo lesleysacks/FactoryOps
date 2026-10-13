@@ -21,9 +21,19 @@ Do **not** try to replace finance, transport, or CRM in this pilot.
 | Floor recorder | OPERATOR | Yes, limited to operational models |
 | Shift lead | SUPERVISOR | Yes |
 | Plant lead | ADMIN | Yes |
-| QC inspector | QC | Optional; same screens as operator in v1 |
+| QC inspector | QC | QC queue only. Not the operator production screens. |
 
 Create users **before** day 1. Assign `factory`. Create at least one Admin who understands reconciliations.
+
+Pilot names are not hard-coded into screens. After the accounts exist, review a dry-run and then apply roles:
+
+`python manage.py assign_pilot_staff`
+
+`python manage.py assign_pilot_staff --apply`
+
+The command matches an existing username or first or last name of Lesley, Neville, Yolandi, or Frankie (exact, case-insensitive). It does not create accounts or set passwords. A dry-run still prints a report when names are missing. `--apply` refuses and exits non-zero until each name matches exactly one existing account. Then set Lesley's printing machines on the user in Admin.
+
+On Windows, activate `.venv` first (`.\.venv\Scripts\Activate.ps1`) so `python manage.py` resolves. If Django says the command is unknown, this checkout does not include `apps/accounts/management/commands/assign_pilot_staff.py` (added in pull request #7). Fetch that commit instead of merging over uncommitted work.
 
 ## Week 0 — setup (half day)
 

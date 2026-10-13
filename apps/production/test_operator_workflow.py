@@ -410,7 +410,7 @@ def test_empty_production_state_renders(client, user):
 @pytest.mark.django_db
 def test_qc_cannot_start_or_complete_production(client, qc_user, machine):
     client.force_login(qc_user)
-    assert client.get(reverse('dashboard:operator_production')).status_code == 200
+    assert client.get(reverse('dashboard:operator_production')).status_code == 403
     assert _start(client, machine).status_code == 403
     assert ProductionRun.objects.count() == 0
 

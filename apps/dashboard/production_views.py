@@ -14,7 +14,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from apps.production.models import ProductionRun, ProductionRunStatus
+from apps.production.models import ProductionRun, ProductionRunStatus, ProductionStage
+from apps.production.state_machine import gate_requirements
+from apps.production.variance import expected_individual_units, recorded_quantity_for_run
 from apps.production.workflow import (
     complete_production_run,
     current_material_states_for,
@@ -29,10 +31,9 @@ from .forms import (
 )
 from .helpers import crumbs
 from .permissions import (
-    OPERATOR_ROLES,
-    PRODUCTION_ROLES,
     can_record_production,
-    role_required,
+    inventory_required,
+    production_required,
 )
 from .querysets import (
     active_lines_for,
@@ -43,6 +44,20 @@ from .querysets import (
     production_runs_for,
     user_factory,
 )
+
+
+def _next_gate(run):
+    if not run.stage:
+        return None
+    nxt = {
+        ProductionStage.DRAFT: ProductionStage.INPUTS_COMPLETE,
+        ProductionStage.INPUTS_COMPLETE: ProductionStage.PRODUCTION_ACTIVE,
+        ProductionStage.PRODUCTION_ACTIVE: ProductionStage.OUTPUT_RECORDED,
+        ProductionStage.OUTPUT_RECORDED: ProductionStage.QC_REQUIRED,
+    }.get(run.stage)
+    if nxt is None:
+        return None
+    return gate_requirements(run, nxt)
 
 
 def _page(title, subtitle, trail):
@@ -64,7 +79,7 @@ def _validation_message(exc):
     return str(exc)
 
 
-@role_required(*OPERATOR_ROLES)
+@production_required
 def operator_production(request):
     factory = user_factory(request.user)
     today = timezone.now().date()
@@ -83,7 +98,7 @@ def operator_production(request):
     })
 
 
-@role_required(*OPERATOR_ROLES)
+@production_required
 @require_http_methods(['GET', 'POST'])
 def production_line(request, pk):
     line = get_object_or_404(active_lines_for(request.user), pk=pk)
@@ -121,7 +136,7 @@ def production_line(request, pk):
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_POST
 def machine_start(request, pk):
     machine = get_object_or_404(active_machines_for(request.user), pk=pk)
@@ -134,7 +149,7 @@ def machine_start(request, pk):
     return redirect('dashboard:production_run', pk=run.pk)
 
 
-@role_required(*OPERATOR_ROLES)
+@production_required
 @require_http_methods(['GET', 'POST'])
 def production_run(request, pk):
     run = get_object_or_404(production_runs_for(request.user), pk=pk)
@@ -174,11 +189,20 @@ def production_run(request, pk):
         'current_material_states': current_material_states_for(run),
         'form': form,
         'can_record_production': can_record_production(request.user),
+        'can_record_output': (
+            can_record_production(request.user)
+            and run.status == ProductionRunStatus.IN_PROGRESS
+            and (run.stage is None or run.stage == ProductionStage.PRODUCTION_ACTIVE)
+        ),
         'is_active_run': run.status == ProductionRunStatus.IN_PROGRESS,
+        'is_controlled_run': run.stage is not None,
+        'expected_quantity': expected_individual_units(run) if run.stage else None,
+        'recorded_quantity': recorded_quantity_for_run(run) if run.stage else None,
+        'next_gate': _next_gate(run),
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@inventory_required
 @require_http_methods(['GET', 'POST'])
 def production_consumption(request, pk):
     run = get_object_or_404(active_production_runs_for(request.user), pk=pk)
@@ -223,7 +247,7 @@ def production_consumption(request, pk):
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_http_methods(['GET', 'POST'])
 def production_material_state(request, pk):
     run = get_object_or_404(active_production_runs_for(request.user), pk=pk)
@@ -259,7 +283,7 @@ def production_material_state(request, pk):
     })
 
 
-@role_required(*PRODUCTION_ROLES)
+@production_required
 @require_POST
 def production_complete(request, pk):
     try:

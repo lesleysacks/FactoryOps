@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.access import assert_can_manage_production, assert_machine_assignment
 from apps.production.models import (
     ProductionOutput,
     ProductionRun,
@@ -54,6 +55,8 @@ def allocate_reference(factory, when=None):
 
 
 def start_production_run(user, machine, line=None):
+    assert_can_manage_production(user)
+    assert_machine_assignment(user, machine)
     factory = _require_factory(user)
     if machine is None:
         raise ValidationError({'machine': 'Select a machine.'})
@@ -86,6 +89,7 @@ def start_production_run(user, machine, line=None):
 
 
 def record_production_output(user, run_id, quantity, output_name):
+    assert_can_manage_production(user)
     factory = _require_factory(user)
     name = (output_name or '').strip()
     if not name:
@@ -97,6 +101,7 @@ def record_production_output(user, run_id, quantity, output_name):
             raise
         if run.factory_id != factory.id:
             raise ProductionRun.DoesNotExist
+        assert_machine_assignment(user, run.machine)
         if run.status != ProductionRunStatus.IN_PROGRESS:
             raise ValidationError('Output can only be recorded on an active run.')
         return ProductionOutput.objects.create(
@@ -108,6 +113,7 @@ def record_production_output(user, run_id, quantity, output_name):
 
 
 def complete_production_run(user, run_id):
+    assert_can_manage_production(user)
     factory = _require_factory(user)
     with transaction.atomic():
         try:
@@ -116,6 +122,7 @@ def complete_production_run(user, run_id):
             raise
         if run.factory_id != factory.id:
             raise ProductionRun.DoesNotExist
+        assert_machine_assignment(user, run.machine)
         if run.status == ProductionRunStatus.COMPLETED:
             raise ValidationError('This run is already completed.')
         if run.status != ProductionRunStatus.IN_PROGRESS:
@@ -127,6 +134,7 @@ def complete_production_run(user, run_id):
 
 
 def record_material_state(user, run_id, material, roll_quantity, spare_roll_quantity):
+    assert_can_manage_production(user)
     factory = _require_factory(user)
     if material is None:
         raise ValidationError({'material': 'Select a material.'})
@@ -141,6 +149,7 @@ def record_material_state(user, run_id, material, roll_quantity, spare_roll_quan
             raise
         if run.factory_id != factory.id:
             raise ProductionRun.DoesNotExist
+        assert_machine_assignment(user, run.machine)
         if run.status != ProductionRunStatus.IN_PROGRESS:
             raise ValidationError(
                 'Material state can only be recorded on an active run.'

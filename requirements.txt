@@ -12,3 +12,9 @@ python-dotenv==1.2.3
 
 # Timezone data (required on Windows)
 tzdata==2026.3
+
+# Production WSGI server (Windows-compatible; not Django runserver)
+waitress==3.0.2
+
+# Static files for the production WSGI process
+whitenoise==6.11.0

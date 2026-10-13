@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Configure production — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Configure production</h1>
+        <p>{% if factory %}{{ factory.name }}{% else %}No factory assigned{% endif %}</p>
+    </div>
+
+    {% if missing %}
+        <div class="alert alert-warning">Still needed: {{ missing|join:", " }}.</div>
+    {% endif %}
+
+    <form method="post" class="card capture-form" novalidate>
+        {% csrf_token %}
+        <h2>Run configuration</h2>
+        <p class="muted" style="margin-bottom:0.75rem;">The server checks every required field before the run can start. Pack sizes come from packaging data, not from the screen.</p>
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% for field in form %}
+            <div class="field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+                {% for error in field.errors %}
+                    <p class="field-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save configuration</button>
+        </div>
+    </form>
+
+    <p><a class="btn btn-ghost" href="{% url 'dashboard:operator_production' %}">Back to production</a></p>
+</div>
+{% endblock %}

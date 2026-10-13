@@ -59,13 +59,16 @@ INSTALLED_APPS = [
     'apps.factories',
     'apps.machines',
     'apps.materials',
+    'apps.catalog',
     'apps.production',
+    'apps.audit',
     'apps.orders',
     'apps.shifts',
     'apps.handovers',
     'apps.downtime',
     'apps.dashboard',
     'apps.reports',
+    'apps.maintenance',
 ]
 
 MIDDLEWARE = [

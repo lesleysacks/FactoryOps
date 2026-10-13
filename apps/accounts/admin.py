@@ -15,17 +15,18 @@ class UserAdmin(BaseUserAdmin):
     """
     list_display = ('username', 'email', 'get_full_name', 'role', 'factory', 'is_active', 'is_staff')
     list_filter = ('role', 'factory', 'is_active', 'is_staff')
+    filter_horizontal = BaseUserAdmin.filter_horizontal + ('assigned_machines',)
     search_fields = ('username', 'email', 'first_name', 'last_name', 'employee_id')
     ordering = ('username',)
 
     fieldsets = BaseUserAdmin.fieldsets + (
         ('FactoryOps', {
-            'fields': ('role', 'employee_id', 'factory'),
+            'fields': ('role', 'employee_id', 'factory', 'assigned_machines'),
         }),
     )
 
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ('FactoryOps', {
-            'fields': ('role', 'employee_id', 'factory'),
+            'fields': ('role', 'employee_id', 'factory', 'assigned_machines'),
         }),
     )

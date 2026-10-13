@@ -4,7 +4,10 @@ FactoryOps Production — Django Admin Registration
 
 from django.contrib import admin
 
+from apps.accounts.access import production_admin_allowed, scope_production_admin
+
 from .models import (
+    FactoryProductionPolicy,
     FinishedGood,
     FinishedGoodAddition,
     FinishedGoodAdjustment,
@@ -15,18 +18,50 @@ from .models import (
     ProductionReject,
     ProductionRun,
     ProductionRunMaterialState,
+    QCPhoto,
+    QCVerification,
     Warehouse,
 )
 
 
+class ProductionManagementAdmin(admin.ModelAdmin):
+    """Production-run admin follows the same role and machine limits as the floor."""
+
+    production_scope_prefix = ''
+
+    def has_module_permission(self, request):
+        return production_admin_allowed(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        return production_admin_allowed(request.user)
+
+    def has_add_permission(self, request):
+        return production_admin_allowed(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        return production_admin_allowed(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        return production_admin_allowed(request.user)
+
+    def get_queryset(self, request):
+        return scope_production_admin(
+            super().get_queryset(request),
+            request.user,
+            self.production_scope_prefix,
+        )
+
+
 @admin.register(ProductionRun)
-class ProductionRunAdmin(admin.ModelAdmin):
+class ProductionRunAdmin(ProductionManagementAdmin):
     list_display = (
         'reference',
         'factory',
         'production_line',
         'machine',
         'status',
+        'stage',
+        'product',
         'created_by',
         'started_at',
         'ended_at',
@@ -39,7 +74,8 @@ class ProductionRunAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProductionOutput)
-class ProductionOutputAdmin(admin.ModelAdmin):
+class ProductionOutputAdmin(ProductionManagementAdmin):
+    production_scope_prefix = 'production_run__'
     list_display = (
         'recorded_at',
         'production_run',
@@ -60,7 +96,8 @@ class ProductionOutputAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProductionRunMaterialState)
-class ProductionRunMaterialStateAdmin(admin.ModelAdmin):
+class ProductionRunMaterialStateAdmin(ProductionManagementAdmin):
+    production_scope_prefix = 'production_run__'
     list_display = (
         'recorded_at',
         'production_run',
@@ -81,7 +118,8 @@ class ProductionRunMaterialStateAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProductionReject)
-class ProductionRejectAdmin(admin.ModelAdmin):
+class ProductionRejectAdmin(ProductionManagementAdmin):
+    production_scope_prefix = 'production_run__'
     list_display = (
         'occurred_at',
         'production_run',
@@ -247,3 +285,40 @@ class FinishedGoodReconciliationAdmin(admin.ModelAdmin):
     def calculate_reconciliations(self, request, queryset):
         for reconciliation in queryset:
             reconciliation.calculate()
+
+
+@admin.register(FactoryProductionPolicy)
+class FactoryProductionPolicyAdmin(admin.ModelAdmin):
+    list_display = ('factory', 'tolerance_pct', 'min_qc_photos', 'updated_at')
+    list_select_related = ('factory',)
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(QCVerification)
+class QCVerificationAdmin(admin.ModelAdmin):
+    list_display = (
+        'production_run',
+        'status',
+        'variant',
+        'packaging',
+        'expected_quantity',
+        'recorded_quantity',
+        'qc_verified_quantity',
+        'verified_by',
+    )
+    list_filter = ('status', 'production_run__factory')
+    search_fields = ('production_run__reference',)
+    list_select_related = (
+        'production_run',
+        'variant',
+        'packaging',
+        'verified_by',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(QCPhoto)
+class QCPhotoAdmin(admin.ModelAdmin):
+    list_display = ('uploaded_at', 'qc_verification', 'uploaded_by', 'caption')
+    list_select_related = ('qc_verification', 'uploaded_by')
+    readonly_fields = ('created_at', 'updated_at', 'uploaded_at')

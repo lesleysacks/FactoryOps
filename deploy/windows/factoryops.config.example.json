@@ -1,0 +1,15 @@
+{
+  "projectRoot": "C:\\FactoryOps\\app",
+  "pythonExe": "C:\\FactoryOps\\app\\.venv\\Scripts\\python.exe",
+  "port": 8000,
+  "bind": "0.0.0.0",
+  "kioskUrl": "http://127.0.0.1:8000/accounts/login/",
+  "logDir": "C:\\FactoryOps\\logs",
+  "backupDir": "C:\\FactoryOps\\backups",
+  "retentionDays": 14,
+  "databasePath": "C:\\FactoryOps\\app\\db.sqlite3",
+  "mediaRoot": "C:\\FactoryOps\\app\\media",
+  "firewallRemoteAddress": "LocalSubnet",
+  "displayUser": "",
+  "kioskStartupShortcut": ""
+}

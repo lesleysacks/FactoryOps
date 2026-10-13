@@ -2,7 +2,9 @@
 FactoryOps Production — Production Run and Output Models
 """
 
+import uuid
 from decimal import Decimal
+from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -10,11 +12,37 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
+QC_PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
+QC_PHOTO_CONTENT_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
+MAX_QC_PHOTO_BYTES = 5 * 1024 * 1024
+
+
+def qc_photo_upload_to(instance, filename):
+    extension = Path(filename).suffix.lower()
+    if extension not in QC_PHOTO_EXTENSIONS:
+        extension = '.bin'
+    verification = instance.qc_verification
+    run = verification.production_run
+    return f'qc/{run.factory_id}/{run.pk}/{uuid.uuid4().hex}{extension}'
+
 
 class ProductionRunStatus(models.TextChoices):
     PLANNED = 'PLANNED', 'Planned'
     IN_PROGRESS = 'IN_PROGRESS', 'In progress'
     COMPLETED = 'COMPLETED', 'Completed'
+    CANCELLED = 'CANCELLED', 'Cancelled'
+
+
+class ProductionStage(models.TextChoices):
+    DRAFT = 'DRAFT', 'Draft'
+    INPUTS_COMPLETE = 'INPUTS_COMPLETE', 'Inputs complete'
+    PRODUCTION_ACTIVE = 'PRODUCTION_ACTIVE', 'Production active'
+    OUTPUT_RECORDED = 'OUTPUT_RECORDED', 'Output recorded'
+    QC_REQUIRED = 'QC_REQUIRED', 'QC required'
+    QC_COMPLETE = 'QC_COMPLETE', 'QC complete'
+    VALIDATION = 'VALIDATION', 'Validation'
+    COMPLETED = 'COMPLETED', 'Completed'
+    EXCEPTION = 'EXCEPTION', 'Exception'
     CANCELLED = 'CANCELLED', 'Cancelled'
 
 
@@ -57,6 +85,42 @@ class ProductionRun(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    product = models.ForeignKey(
+        'catalog.Product',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='production_runs',
+    )
+    variant = models.ForeignKey(
+        'catalog.ProductVariant',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='production_runs',
+    )
+    packaging = models.ForeignKey(
+        'catalog.Packaging',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='production_runs',
+    )
+    planned_pack_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0.001'))],
+        help_text='How many packs are planned, for example 20 in 20 × 15s.',
+    )
+    stage = models.CharField(
+        max_length=30,
+        choices=ProductionStage.choices,
+        null=True,
+        blank=True,
+        help_text='V1.1 production-control stage. Empty on legacy runs.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -144,6 +208,29 @@ class ProductionRun(models.Model):
             raise ValidationError({
                 'production_line': 'Cannot start a production run on an inactive production line.',
             })
+        if self.planned_pack_quantity is not None and self.planned_pack_quantity <= 0:
+            raise ValidationError({
+                'planned_pack_quantity': 'Planned pack quantity must be greater than zero.',
+            })
+        if self.product_id and self.factory_id:
+            if self.product.factory_id != self.factory_id:
+                raise ValidationError({
+                    'product': 'Product must belong to the same factory as the run.',
+                })
+        if self.variant_id:
+            if not self.product_id or self.variant.product_id != self.product_id:
+                raise ValidationError({
+                    'variant': 'Variant must belong to the selected product.',
+                })
+            if self.factory_id and self.variant.product.factory_id != self.factory_id:
+                raise ValidationError({
+                    'variant': 'Variant must belong to the same factory as the run.',
+                })
+        if self.packaging_id and self.factory_id:
+            if self.packaging.factory_id != self.factory_id:
+                raise ValidationError({
+                    'packaging': 'Packaging must belong to the same factory as the run.',
+                })
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -837,3 +924,203 @@ class FinishedGoodReconciliation(models.Model):
         from apps.production.services import reconcile_finished_goods
 
         return reconcile_finished_goods(self)
+
+
+class QCVerificationStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pending'
+    VERIFIED = 'VERIFIED', 'Verified'
+    EXCEPTION = 'EXCEPTION', 'Exception'
+
+
+class FactoryProductionPolicy(models.Model):
+    """Per-factory variance tolerance and QC photo minimum. Absence means the defaults."""
+
+    factory = models.OneToOneField(
+        'factories.Factory',
+        on_delete=models.PROTECT,
+        related_name='production_policy',
+    )
+    tolerance_pct = models.DecimalField(
+        max_digits=7,
+        decimal_places=3,
+        default=Decimal('0'),
+        validators=[MinValueValidator(Decimal('0'))],
+        help_text='Absolute percentage variance allowed before a run becomes an exception.',
+    )
+    min_qc_photos = models.PositiveSmallIntegerField(
+        default=1,
+        help_text='Photos required before QC can complete a run.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Factory Production Policy'
+        verbose_name_plural = 'Factory Production Policies'
+
+    def __str__(self):
+        return f'{self.factory.name} — tolerance {self.tolerance_pct}%'
+
+    def clean(self):
+        super().clean()
+        if self.tolerance_pct is not None and self.tolerance_pct < 0:
+            raise ValidationError({
+                'tolerance_pct': 'Tolerance cannot be negative.',
+            })
+        if self.min_qc_photos is not None and self.min_qc_photos < 1:
+            raise ValidationError({
+                'min_qc_photos': 'At least one QC photo is required by policy.',
+            })
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class QCVerification(models.Model):
+    production_run = models.OneToOneField(
+        ProductionRun,
+        on_delete=models.PROTECT,
+        related_name='qc_verification',
+    )
+    variant = models.ForeignKey(
+        'catalog.ProductVariant',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='qc_verifications',
+    )
+    packaging = models.ForeignKey(
+        'catalog.Packaging',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='qc_verifications',
+    )
+    expected_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+        help_text='Computed individual units. Stored at validation time.',
+    )
+    recorded_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+        help_text='Operator recorded individual units. Preserved, not overwritten by QC.',
+    )
+    qc_verified_quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+        help_text='Quantity QC physically confirmed, in individual units.',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=QCVerificationStatus.choices,
+        default=QCVerificationStatus.PENDING,
+    )
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='qc_verifications',
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'QC Verification'
+        verbose_name_plural = 'QC Verifications'
+
+    def __str__(self):
+        return f'QC — {self.production_run.reference}'
+
+    def clean(self):
+        super().clean()
+        run = self.production_run if self.production_run_id else None
+        if run is None:
+            return
+        factory_id = run.factory_id
+        if self.variant_id and self.variant.product.factory_id != factory_id:
+            raise ValidationError({
+                'variant': 'QC variant must belong to the same factory as the run.',
+            })
+        if self.packaging_id and self.packaging.factory_id != factory_id:
+            raise ValidationError({
+                'packaging': 'QC packaging must belong to the same factory as the run.',
+            })
+        for field_name in (
+            'expected_quantity',
+            'recorded_quantity',
+            'qc_verified_quantity',
+        ):
+            value = getattr(self, field_name)
+            if value is not None and value < 0:
+                raise ValidationError({field_name: 'Quantity cannot be negative.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class QCPhoto(models.Model):
+    qc_verification = models.ForeignKey(
+        QCVerification,
+        on_delete=models.CASCADE,
+        related_name='photos',
+    )
+    image = models.FileField(upload_to=qc_photo_upload_to)
+    caption = models.CharField(max_length=200, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='qc_photos',
+    )
+    uploaded_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'QC Photo'
+        verbose_name_plural = 'QC Photos'
+        ordering = ('-uploaded_at',)
+
+    def __str__(self):
+        return f'Photo — {self.qc_verification}'
+
+    def clean(self):
+        super().clean()
+        if self.caption:
+            self.caption = self.caption.strip()
+        if not self.image:
+            raise ValidationError({'image': 'A photo file is required.'})
+        extension = Path(self.image.name).suffix.lower()
+        if extension not in QC_PHOTO_EXTENSIONS:
+            raise ValidationError({
+                'image': 'Photo must be a JPG, PNG, or WebP file.',
+            })
+        size = getattr(self.image, 'size', None)
+        if size is not None and size > MAX_QC_PHOTO_BYTES:
+            raise ValidationError({
+                'image': 'Photo must be 5 MB or smaller.',
+            })
+        content_type = getattr(self.image, 'content_type', None)
+        if content_type and content_type not in QC_PHOTO_CONTENT_TYPES:
+            raise ValidationError({
+                'image': 'Photo content type must be JPEG, PNG, or WebP.',
+            })
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
