@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Sheet sync — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>Sheet sync</h1>
+        <p>FactoryOps keeps the operational record. Google Sheets receives a management copy when this integration is turned on.</p>
+    </div>
+
+    <div class="card">
+        <h2>Integration</h2>
+        {% if snapshot.ready %}
+            <p>Ready to sync.</p>
+        {% else %}
+            <ul>
+                {% for problem in snapshot.problems %}
+                    <li>{{ problem }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        <p class="muted">
+            {% if snapshot.factory_scoped %}
+                Manual sync includes this factory only.
+            {% else %}
+                Manual sync includes every factory in this database.
+            {% endif %}
+            {% if snapshot.spreadsheet_configured %}
+                Spreadsheet ID {{ snapshot.spreadsheet_id }}.
+            {% else %}
+                No spreadsheet ID is configured.
+            {% endif %}
+        </p>
+        {% if snapshot.unknown_datasets %}
+            <p>Ignored dataset names: {{ snapshot.unknown_datasets|join:", " }}.</p>
+        {% endif %}
+        <form method="post" action="{% url 'reports:sheets_status' %}">
+            {% csrf_token %}
+            <button class="btn btn-primary" type="submit" name="action" value="sync">Sync now</button>
+            <button class="btn btn-ghost" type="submit" name="action" value="retry">Retry failures now</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Datasets</h2>
+        <div class="table-wrap">
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Dataset</th>
+                        <th>Available</th>
+                        <th>Pending</th>
+                        <th>Synced</th>
+                        <th>Failed</th>
+                        <th>Last error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dataset in snapshot.datasets %}
+                        <tr>
+                            <td>{{ dataset.title }}</td>
+                            <td>{% if dataset.available %}Yes{% else %}No{% endif %}</td>
+                            <td>{{ dataset.pending }}</td>
+                            <td>{{ dataset.synced }}</td>
+                            <td>{{ dataset.failed }}</td>
+                            <td>
+                                {% if dataset.last_error %}
+                                    {{ dataset.last_error }}
+                                {% elif not dataset.available %}
+                                    {{ dataset.reason }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Recent sync runs</h2>
+        <div class="table-wrap">
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Started</th>
+                        <th>Trigger</th>
+                        <th>Outcome</th>
+                        <th>Synced</th>
+                        <th>Failed</th>
+                        <th>Pending</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in snapshot.runs %}
+                        <tr>
+                            <td>{{ run.started_at }}</td>
+                            <td>{{ run.trigger }}</td>
+                            <td>{{ run.outcome }}</td>
+                            <td>{{ run.synced_count }}</td>
+                            <td>{{ run.failed_count }}</td>
+                            <td>{{ run.pending_count }}</td>
+                            <td>{{ run.message }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="7" class="empty">No sync has run yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

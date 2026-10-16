@@ -172,3 +172,45 @@ LOGOUT_REDIRECT_URL = '/accounts/login/'
 # Email
 # ---------------------------------------------------------------------------
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+
+# ---------------------------------------------------------------------------
+# Google Sheets reporting
+# Off unless GOOGLE_SHEETS_ENABLED is explicitly true. FactoryOps remains the
+# system of record. The credentials file is a path only; its contents are
+# never stored in settings.
+# ---------------------------------------------------------------------------
+def _flag(name, default='False'):
+    return os.getenv(name, default).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _bounded_int(name, default, low, high):
+    raw = os.getenv(name, '').strip()
+    try:
+        value = int(raw) if raw else default
+    except ValueError:
+        value = default
+    return min(max(value, low), high)
+
+
+def _bounded_float(name, default, low, high):
+    raw = os.getenv(name, '').strip()
+    try:
+        value = float(raw) if raw else default
+    except ValueError:
+        value = default
+    return min(max(value, low), high)
+
+
+GOOGLE_SHEETS_ENABLED = _flag('GOOGLE_SHEETS_ENABLED')
+GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID', '').strip()
+GOOGLE_SHEETS_CREDENTIALS_FILE = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', '').strip()
+GOOGLE_SHEETS_DATASETS = tuple(
+    item.strip()
+    for item in os.getenv('GOOGLE_SHEETS_DATASETS', '').split(',')
+    if item.strip()
+)
+GOOGLE_SHEETS_TIMEOUT_SECONDS = _bounded_int('GOOGLE_SHEETS_TIMEOUT_SECONDS', 30, 5, 120)
+GOOGLE_SHEETS_MAX_ATTEMPTS = _bounded_int('GOOGLE_SHEETS_MAX_ATTEMPTS', 5, 1, 20)
+GOOGLE_SHEETS_BACKOFF_SECONDS = _bounded_float('GOOGLE_SHEETS_BACKOFF_SECONDS', 2, 0.5, 300)
+GOOGLE_SHEETS_BATCH_SIZE = _bounded_int('GOOGLE_SHEETS_BATCH_SIZE', 100, 1, 500)

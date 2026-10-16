@@ -30,7 +30,7 @@ if (-not $PSCmdlet.ShouldProcess($target, 'Uninstall FactoryOps startup integrat
 
 & (Join-Path $PSScriptRoot 'Stop-FactoryOps.ps1')
 
-foreach ($name in @($script:FactoryOpsServerTask, $script:FactoryOpsBackupTask)) {
+foreach ($name in @($script:FactoryOpsServerTask, $script:FactoryOpsBackupTask, $script:FactoryOpsSheetsTask)) {
     $task = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
     if ($task) {
         Unregister-ScheduledTask -TaskName $name -Confirm:$false

@@ -16,6 +16,11 @@ db.sqlite3
 # Environment variables (secrets — never commit)
 .env
 
+# Google service-account keys and local secret files
+secrets/
+*-service-account.json
+*service-account*.json
+
 # Media uploads (photos / evidence)
 media/
 

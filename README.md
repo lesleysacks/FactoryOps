@@ -29,9 +29,9 @@ Give a single factory a reliable operational record: what came in, what was cons
 | Auth | Login / logout under `/accounts/` |
 | Admin | Django Admin for master data and full capture |
 
-**Stub apps installed but not productised:** `apps.shifts`, `apps.handovers`, `apps.downtime`, `apps.reports` (empty / placeholder models).
+**Stub apps installed but not productised:** `apps.shifts`, `apps.handovers`, `apps.downtime` (empty / placeholder models). `apps.reports` stores optional Google Sheets delivery state. It does not replace factory records.
 
-**Not built (by design at this checkpoint):** dedicated QC workflows, photo evidence models, Excel export, AI, invoicing, procurement, bin locations, warehouse transfers, PostgreSQL/Docker deploy pack.
+**Not built (by design at this checkpoint):** Excel export, AI, invoicing, procurement, bin locations, warehouse transfers, PostgreSQL/Docker deploy pack. Google Forms and Apps Script are not part of the Sheets integration.
 
 ---
 
@@ -112,7 +112,7 @@ FactoryOps/
 │   ├── shifts/        # Stub
 │   ├── handovers/     # Stub
 │   ├── downtime/      # Stub
-│   └── reports/       # Stub
+│   └── reports/       # Optional Google Sheets sync state
 ├── config/            # Django project (settings, urls, wsgi/asgi)
 ├── templates/         # Project templates
 ├── static/            # CSS / favicon
@@ -158,7 +158,7 @@ Full walkthrough: [docs/setup.md](docs/setup.md).
 
 | File | Purpose |
 |---|---|
-| `requirements.txt` | Runtime (Django, dotenv, tzdata, Waitress, WhiteNoise) |
+| `requirements.txt` | Runtime (Django, dotenv, tzdata, Waitress, WhiteNoise, Google Sheets client libraries) |
 | `requirements-dev.txt` | Includes runtime + pytest, pytest-django, coverage |
 
 Install both for local development and testing.
@@ -174,6 +174,9 @@ Install both for local development and testing.
 | `SECRET_KEY` | Django secret (required; no Python default) |
 | `DEBUG` | `True` or `False` (string compare to `'True'`) |
 | `ALLOWED_HOSTS` | Comma-separated hostnames |
+| `GOOGLE_SHEETS_ENABLED` | `True` only when Sheets reporting should run. Default `False` |
+| `GOOGLE_SHEETS_SPREADSHEET_ID` | Destination spreadsheet. Ignored while the integration is off |
+| `GOOGLE_SHEETS_CREDENTIALS_FILE` | Absolute path to a service-account JSON file. Never commit that file |
 
 ### Generate `SECRET_KEY`
 
@@ -190,6 +193,49 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
 Never commit `.env`. Prefer the placeholder in `.env.example` only as a template.
+
+### Google Sheets reporting
+
+FactoryOps remains the system of record. Google Sheets is an optional management copy of three datasets that already exist:
+
+| Dataset | Source |
+|---|---|
+| Production output | `ProductionOutput` and its production run |
+| QC results | `QCVerification`, plus a photo count. Photo files are not uploaded |
+| Stock movements | Material additions, consumption, waste, and scrap, plus finished-good additions, adjustments, and dispatches |
+
+Downtime and shift handovers are shown on the sync status page as unavailable. `apps.downtime`, `apps.shifts`, and `apps.handovers` still have no models, so this integration does not invent them. There is still no Excel export. Names, email addresses, employee numbers, free-text notes, and QC photo files are not copied.
+
+The integration is off until all of the following are true:
+
+1. `GOOGLE_SHEETS_ENABLED=True`
+2. `GOOGLE_SHEETS_SPREADSHEET_ID` is the spreadsheet id from its URL
+3. `GOOGLE_SHEETS_CREDENTIALS_FILE` points at a Google service-account JSON file that exists on disk
+
+Share that spreadsheet with the service account's `client_email` as an editor. Keep the JSON file outside the git checkout (`C:\FactoryOps\secrets\factoryops-sheets.json` on the factory PC). Do not put the file in the repository, in a backup that gets committed, or in a log.
+
+Restart the application after changing `.env`. Data entry does not wait for Google. Sync runs from **Sheet sync** in the manager navigation, or from:
+
+```powershell
+python manage.py sync_google_sheets
+python manage.py sync_google_sheets --retry
+```
+
+Administrators (`ADMIN`, or a superuser) can open `/reports/sheets/`. Operators, QC, and supervisors cannot. A plant administrator syncs that factory only. A platform administrator with no factory, and the scheduled command, sync each configured dataset for every factory.
+
+Each source row is delivered with a stable source key. A retry updates that row instead of appending another copy. Failures stay in the local sync table. The factory row is unchanged, and the next attempt uses exponential backoff. Rate limits honour `Retry-After`. After `GOOGLE_SHEETS_MAX_ATTEMPTS` (default 5) the row is marked failed until an administrator chooses **Retry failures now** or runs `sync_google_sheets --retry`.
+
+#### Recovery
+
+- **Temporary outage or timeout.** Leave the source data alone. Wait for the next scheduled run, or open Sheet sync and choose **Retry failures now**. Pending rows remain until a push succeeds.
+- **Rate limit.** The status page shows the safe error text. Wait for the backoff, then retry. Do not delete factory records to "clear" the sheet.
+- **Header was edited in the spreadsheet.** Put the original header row back, or rename that tab and let the next sync create a fresh one. FactoryOps will not shift existing columns under new names.
+- **Wrong or rotated key.** Replace the JSON file at the configured path and restart. The old file should be deleted from disk. Do not paste it into a ticket or a log.
+- **Turn the integration off.** Set `GOOGLE_SHEETS_ENABLED=False` and restart. Sync stops calling Google. Factory data and the local delivery table stay where they are.
+- **Stuck sync.** A second run waits if one is already in progress. The lock expires after 15 minutes so a crashed run can be tried again.
+- **Duplicate suspicion.** Compare column A (source key). There should be one row per source key. A later sync updates that row.
+
+On the factory PC, register the optional hourly task only after the three settings above are in place. See [docs/windows-11-deployment.md](docs/windows-11-deployment.md).
 
 ---
 
@@ -450,7 +496,7 @@ coverage report
 - Dashboards require authentication; roles gate paths.
 - Factory-assigned users are scoped to their factory.
 - Admin is powerful — limit staff users in a pilot.
-- Never commit secrets, SQLite DBs with plant data, `media/` uploads, or backup archives.
+- Never commit secrets, service-account JSON keys, SQLite DBs with plant data, `media/` uploads, or backup archives.
 - Backup folders contain the same factory records and photos as the live database. Store them outside Git and limit who can read them.
 - For any host reachable beyond localhost, set `DEBUG=False` and tighten `ALLOWED_HOSTS`.
 
@@ -490,7 +536,7 @@ Near-term focus is pilot stability, not greenfield rebuilds:
 2. Environment / deploy hygiene (`DEBUG`, hosts, secrets)
 3. Only then: QC records, photos, exports, or AI — if the plant asks for them with real data
 
-Stub apps (`shifts`, `handovers`, `downtime`, `reports`) stay dormant until needed.
+Stub apps (`shifts`, `handovers`, `downtime`) stay dormant until they have real source records. Google Sheets reporting is optional and off by default.
 
 ---
 

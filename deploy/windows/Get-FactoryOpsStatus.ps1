@@ -21,6 +21,14 @@ if ($task) {
     Write-Host 'Task FactoryOpsServer is not registered.'
 }
 
+$sheetsTask = Get-ScheduledTask -TaskName $script:FactoryOpsSheetsTask -ErrorAction SilentlyContinue
+if ($sheetsTask) {
+    $sheetsInfo = Get-ScheduledTaskInfo -TaskName $script:FactoryOpsSheetsTask
+    Write-Host ("Task {0} state={1} lastResult={2} lastRun={3}" -f $sheetsTask.TaskName, $sheetsTask.State, $sheetsInfo.LastTaskResult, $sheetsInfo.LastRunTime)
+} else {
+    Write-Host 'Task FactoryOpsSheetsSync is not registered. Google Sheets reporting stays optional.'
+}
+
 $listener = Get-FactoryOpsListeningProcess -Port ([int]$config.port)
 if ($listener) {
     $ours = Test-FactoryOpsServerProcess -Process $listener
