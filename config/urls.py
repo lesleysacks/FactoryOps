@@ -38,6 +38,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('apps.accounts.urls', namespace='accounts')),
     path('factories/', include('apps.factories.urls', namespace='factories')),
+    path('reports/', include('apps.reports.urls', namespace='reports')),
     path('', include('apps.dashboard.urls', namespace='dashboard')),
 ]
 

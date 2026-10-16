@@ -75,6 +75,8 @@ Discover the IP with `ipconfig` (Windows), `ip addr` (Linux), or `ifconfig` (mac
 
 Never commit `.env`. Do not set `ALLOWED_HOSTS=*`.
 
+Google Sheets reporting is optional and off by default. Setup, the datasets that are actually copied, and recovery steps are in the README section "Google Sheets reporting". Do not commit a service-account JSON file.
+
 ### 5. Database
 
 ```powershell

@@ -242,6 +242,49 @@ Put a second copy of `C:\FactoryOps\backups` on removable media that does not st
 
 Use a UPS that can run the PC through a short outage and can ask Windows to shut down cleanly. After an unplanned power loss, Task Scheduler starts `FactoryOpsServer` at boot. SQLite's WAL mode (set when the production process opens the database) keeps committed transactions. Sign in to `FactoryDisplay` when you want the full-screen login again. Confirm `/health/` before operators record production.
 
+## Google Sheets reporting
+
+This is optional. A new install does not register a Sheets task and does not call Google. Factory records stay in SQLite. The spreadsheet is a management copy.
+
+1. In Google Cloud, create a service account and download its JSON key. Enable the Google Sheets API for that project.
+2. Create a spreadsheet and share it with the `client_email` in the key as an editor. Copy the spreadsheet id from the URL.
+3. On the factory PC, save the key outside the checkout:
+
+```text
+C:\FactoryOps\secrets\factoryops-sheets.json
+```
+
+4. Edit `C:\FactoryOps\app\.env`:
+
+```env
+GOOGLE_SHEETS_ENABLED=True
+GOOGLE_SHEETS_SPREADSHEET_ID=<spreadsheet id>
+GOOGLE_SHEETS_CREDENTIALS_FILE=C:\FactoryOps\secrets\factoryops-sheets.json
+```
+
+5. Restart FactoryOps so the process reads `.env`:
+
+```powershell
+.\deploy\windows\Restart-FactoryOps.ps1
+```
+
+6. Sign in as an administrator and open **Sheet sync**, or run one sync by hand:
+
+```powershell
+$env:DJANGO_SETTINGS_MODULE = 'config.settings.production'
+.\.venv\Scripts\python.exe manage.py sync_google_sheets
+```
+
+7. When that succeeds, register the hourly task. It does not replace `FactoryOpsServer` and it does not delete the database:
+
+```powershell
+.\deploy\windows\Register-FactoryOpsSheetsSync.ps1
+```
+
+`Get-FactoryOpsStatus.ps1` reports the task when it exists. `Uninstall-FactoryOps.ps1` unregisters it and still leaves the database, media, logs, and `.env` in place.
+
+If the PC has no internet, sync marks rows for retry and operators can keep recording production. After the connection returns, an administrator uses **Retry failures now** or waits for the next hourly run. Full dataset and recovery notes are in the README section "Google Sheets reporting". Do not commit the JSON key. Do not add Google Forms or Apps Script for this phase.
+
 ## Acceptance checklist
 
 | # | Check | Where it is proven |
