@@ -67,7 +67,11 @@ def window_for_day(day):
 
 
 def window_for_week_ending(end):
-    """Seven inclusive UTC calendar days, ending on ``end``."""
+    """Seven inclusive UTC days ending on ``end``.
+
+    The report preset uses the window that ends today. That is a rolling
+    window, not a Monday–Sunday calendar week.
+    """
     end = _as_date(end, 'End date')
     start = end - timedelta(days=WEEK_LENGTH_DAYS - 1)
     return validate_window(start, end)
@@ -92,8 +96,8 @@ def resolve_window(start, end, *, today=None, preset='day'):
     Resolve a report window.
 
     An explicit start and end are used together. One side on its own is
-    rejected. With neither date, ``week`` is the seven UTC days ending today
-    and any other preset is today.
+    rejected. With neither date, ``week`` is the rolling seven UTC days
+    ending today. Any other preset is today. Neither preset is a calendar week.
     """
     if today is None:
         today = utc_today()

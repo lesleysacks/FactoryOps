@@ -183,13 +183,30 @@ def test_custom_range_rejects_more_than_ninety_three_days_on_the_page(client, su
 
 
 @pytest.mark.django_db
-def test_week_page_labels_the_utc_window(client, supervisor):
+def test_week_page_labels_the_rolling_seven_day_window(client, supervisor):
     client.force_login(supervisor)
     response = client.get(reverse('reports:production_summary'), {'preset': 'week'})
     body = response.content.decode()
     assert response.status_code == 200
-    assert 'Weekly production summary' in body
+    assert 'Rolling seven-day production summary' in body
+    assert 'rolling window, not a calendar week' in body
+    assert 'Weekly production summary' not in body
     assert 'UTC' in body
+
+
+@pytest.mark.django_db
+def test_custom_seven_day_span_is_not_labelled_as_a_week(client, supervisor):
+    client.force_login(supervisor)
+    response = client.get(reverse('reports:production_summary'), {
+        'start': '2026-01-05',
+        'end': '2026-01-11',
+    })
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert 'Production summary' in body
+    assert 'Weekly production summary' not in body
+    assert 'Rolling seven-day production summary' not in body
+    assert 'calendar week' not in body
 
 
 @pytest.mark.django_db

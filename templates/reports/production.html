@@ -11,6 +11,10 @@
 
     {% include 'reports/_date_filter.html' %}
 
+    {% if rolling_seven_day %}
+        <p class="muted">Seven inclusive UTC days ending today. This is a rolling window, not a calendar week.</p>
+    {% endif %}
+
     {% if summary %}
         <div class="metric-grid">
             {% include 'partials/metric.html' with label="Operator output" value=summary.output_quantity tone="success" hint="ProductionOutput quantity in this UTC window" %}

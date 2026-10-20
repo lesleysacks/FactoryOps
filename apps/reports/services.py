@@ -112,6 +112,7 @@ def daily_production_summary(user, day):
 
 
 def weekly_production_summary(user, week_ending):
+    """Totals for the rolling seven UTC days ending on ``week_ending``."""
     return production_summary(user, window_for_week_ending(week_ending))
 
 

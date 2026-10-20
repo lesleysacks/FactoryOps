@@ -11,11 +11,14 @@
     </div>
 
     <p class="muted">
-        Operator output and the QC verified quantity stay on their own fields.
-        This report reads them and does not save changes.
-        A run appears when it has production output recorded in the UTC window.
-        Variance uses the existing run comparison, including output recorded outside the window.
+        A run is included when production output was recorded on a UTC date in this range.
+        Variance figures are for the whole run, so output recorded outside the range still counts in the run total.
+        When QC has stored a recorded quantity, variance uses that frozen recorded quantity and does not replace it with later operator output.
+        This report does not save changes.
     </p>
+    {% if rolling_seven_day %}
+        <p class="muted">Seven inclusive UTC days ending today. This is a rolling window, not a calendar week.</p>
+    {% endif %}
 
     {% include 'reports/_date_filter.html' %}
 

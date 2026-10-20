@@ -11,7 +11,7 @@ from apps.accounts.access import _platform_admin
 from apps.dashboard.helpers import crumbs
 from apps.dashboard.permissions import SUPERVISOR_ROLES, role_required
 from apps.reports.services import production_summary, qc_variance_report
-from apps.reports.windows import resolve_window
+from apps.reports.windows import resolve_window, utc_today, window_for_week_ending
 
 
 def _validation_text(exc):
@@ -30,11 +30,19 @@ def _scope_notice(user):
     )
 
 
+def _is_rolling_seven_day(window):
+    """True only for the seven UTC days that end today."""
+    if window is None:
+        return False
+    rolling = window_for_week_ending(utc_today())
+    return window.start == rolling.start and window.end == rolling.end
+
+
 def _summary_title(window):
     if window.day_count == 1:
         return 'Daily production summary'
-    if window.day_count == 7:
-        return 'Weekly production summary'
+    if _is_rolling_seven_day(window):
+        return 'Rolling seven-day production summary'
     return 'Production summary'
 
 
@@ -78,6 +86,7 @@ def production_summary_view(request):
         'error': error,
         'start_value': start_value,
         'end_value': end_value,
+        'rolling_seven_day': _is_rolling_seven_day(window),
     })
 
 
@@ -96,4 +105,5 @@ def qc_variance_view(request):
         'error': error,
         'start_value': start_value,
         'end_value': end_value,
+        'rolling_seven_day': _is_rolling_seven_day(window),
     })
