@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }} — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>{{ page_title }}</h1>
+        <p>{{ page_subtitle }}</p>
+    </div>
+
+    {% include 'reports/_date_filter.html' %}
+
+    {% if summary %}
+        <div class="metric-grid">
+            {% include 'partials/metric.html' with label="Operator output" value=summary.output_quantity tone="success" hint="ProductionOutput quantity in this UTC window" %}
+            {% include 'partials/metric.html' with label="Output rows" value=summary.output_count tone="info" hint="Rows recorded in this window" %}
+            {% include 'partials/metric.html' with label="Runs" value=summary.run_count tone="info" hint="Distinct runs with output in this window" %}
+        </div>
+
+        <div class="card">
+            <h2>Daily output</h2>
+            <p class="muted">
+                {{ summary.start }} to {{ summary.end }}
+                · {{ summary.day_count }} UTC day{{ summary.day_count|pluralize }}
+                · {{ summary.timezone_label }}
+            </p>
+            <p><a href="{% url 'reports:qc_variance' %}?start={{ summary.start|date:'Y-m-d' }}&amp;end={{ summary.end|date:'Y-m-d' }}">QC variance for this window</a></p>
+            <div class="table-wrap">
+                <table class="data">
+                    <thead>
+                        <tr>
+                            <th>UTC date</th>
+                            <th>Operator output</th>
+                            <th>Output rows</th>
+                            <th>Runs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in summary.days %}
+                            <tr>
+                                <td>{{ day.date|date:"Y-m-d" }}</td>
+                                <td>{{ day.output_quantity }}</td>
+                                <td>{{ day.output_count }}</td>
+                                <td>{{ day.run_count }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -39,6 +39,7 @@ urlpatterns = [
     path('accounts/', include('apps.accounts.urls', namespace='accounts')),
     path('factories/', include('apps.factories.urls', namespace='factories')),
     path('', include('apps.dashboard.urls', namespace='dashboard')),
+    path('reports/', include('apps.reports.urls', namespace='reports')),
 ]
 
 if settings.DEBUG:

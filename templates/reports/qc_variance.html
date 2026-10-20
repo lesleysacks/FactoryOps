@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}QC variance — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>QC variance</h1>
+        <p>{{ page_subtitle }}</p>
+    </div>
+
+    <p class="muted">
+        Operator output and the QC verified quantity stay on their own fields.
+        This report reads them and does not save changes.
+        A run appears when it has production output recorded in the UTC window.
+        Variance uses the existing run comparison, including output recorded outside the window.
+    </p>
+
+    {% include 'reports/_date_filter.html' %}
+
+    {% if report %}
+        <div class="card">
+            <h2>Run comparison</h2>
+            <p class="muted">{{ report.start }} to {{ report.end }} · {{ report.timezone_label }}</p>
+            <p><a href="{% url 'reports:production_summary' %}?start={{ report.start|date:'Y-m-d' }}&amp;end={{ report.end|date:'Y-m-d' }}">Production summary for this window</a></p>
+            <div class="table-wrap">
+                <table class="data">
+                    <thead>
+                        <tr>
+                            <th>Run</th>
+                            <th>Factory</th>
+                            <th>Operator output</th>
+                            <th>Recorded for variance</th>
+                            <th>Expected</th>
+                            <th>QC verified</th>
+                            <th>QC minus recorded</th>
+                            <th>Variance</th>
+                            <th>QC record</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in report.rows %}
+                            <tr>
+                                <td>{{ row.reference }}</td>
+                                <td>{{ row.factory_name }}</td>
+                                <td>{{ row.operator_output_quantity }}</td>
+                                <td>{{ row.recorded_quantity }}</td>
+                                <td>{{ row.expected_quantity|default_if_none:"—" }}</td>
+                                <td>{{ row.qc_verified_quantity|default_if_none:"—" }}</td>
+                                <td>{{ row.qc_vs_recorded|default_if_none:"—" }}</td>
+                                <td>
+                                    {% status_tone row.variance_status as tone %}
+                                    {% include 'partials/badge.html' with label=row.variance_status tone=tone %}
+                                </td>
+                                <td>
+                                    {% if row.qc_record_status %}
+                                        {% status_tone row.qc_record_status as tone %}
+                                        {% include 'partials/badge.html' with label=row.qc_record_status tone=tone %}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="9" class="empty">No production output was recorded in this UTC window.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
