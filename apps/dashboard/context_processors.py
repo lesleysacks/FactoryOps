@@ -4,7 +4,9 @@ FactoryOps Dashboard — navigation context for the application shell.
 
 from django.urls import reverse
 
+from apps.accounts.access import can_manage_production, can_record_inventory
 from apps.accounts.models import Role
+from apps.dashboard.permissions import OPERATOR_ROLES, QC_ROLES, SUPERVISOR_ROLES
 
 
 def navigation(request):
@@ -16,17 +18,19 @@ def navigation(request):
             'label': 'Dashboard',
             'url': reverse('dashboard:home'),
         })
-        items.append({
-            'id': 'operations',
-            'label': 'Operations',
-            'url': reverse('dashboard:operator'),
-        })
-        if user.role in (Role.OPERATOR, Role.QC):
+        if user.role in OPERATOR_ROLES:
+            items.append({
+                'id': 'operations',
+                'label': 'Operations',
+                'url': reverse('dashboard:operator'),
+            })
+        if user.role == Role.OPERATOR and can_manage_production(user):
             items.append({
                 'id': 'production',
                 'label': 'Production',
                 'url': reverse('dashboard:operator_production'),
             })
+        if user.role == Role.OPERATOR and can_record_inventory(user):
             items.append({
                 'id': 'inventory',
                 'label': 'Inventory',
@@ -43,6 +47,11 @@ def navigation(request):
                 'label': 'Production',
                 'url': reverse('dashboard:supervisor'),
             })
+            items.append({
+                'id': 'output-reports',
+                'label': 'Output reports',
+                'url': reverse('reports:production_summary'),
+            })
         if user.role == Role.ADMIN:
             items.append({
                 'id': 'orders',
@@ -54,7 +63,21 @@ def navigation(request):
                 'label': 'Reports',
                 'url': reverse('dashboard:executive'),
             })
-        if user.role in (Role.SUPERVISOR, Role.ADMIN):
+        if user.role in QC_ROLES:
+            items.append({
+                'id': 'qc',
+                'label': 'QC',
+                'url': reverse('dashboard:qc_queue'),
+            })
+        if user.role in SUPERVISOR_ROLES:
+            items.append({
+                'id': 'exceptions',
+                'label': 'Exceptions',
+                'url': reverse('dashboard:exception_queue'),
+            })
+        if user.role in (Role.SUPERVISOR, Role.ADMIN) and (
+            user.is_staff or user.is_superuser
+        ):
             items.append({
                 'id': 'admin',
                 'label': 'Admin',
@@ -83,6 +106,17 @@ def navigation(request):
         'stock_count_create': 'inventory',
         'stock_count_close': 'inventory',
         'material_receipt_create': 'inventory',
+        'configure_run': 'production',
+        'start_controlled_run': 'production',
+        'mark_output_recorded': 'production',
+        'submit_for_qc': 'production',
+        'cancel_controlled_run': 'production',
+        'qc_queue': 'qc',
+        'qc_verification': 'qc',
+        'exception_queue': 'exceptions',
+        'exception_detail': 'exceptions',
+        'production_summary': 'output-reports',
+        'qc_variance': 'output-reports',
     }.get(url_name, '')
 
     return {

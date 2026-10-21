@@ -4,6 +4,9 @@ FactoryOps Orders — Django Admin Registration
 
 from django.contrib import admin
 
+from apps.accounts.access import configuration_admin_allowed
+from apps.accounts.admin_access import RoleBoundAdminMixin
+
 from .models import (
     Customer,
     CustomerOrder,
@@ -14,7 +17,9 @@ from .models import (
 
 
 @admin.register(Customer)
-class CustomerAdmin(admin.ModelAdmin):
+class CustomerAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(configuration_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'code',
         'name',
@@ -24,14 +29,16 @@ class CustomerAdmin(admin.ModelAdmin):
         'is_active',
         'created_at',
     )
-    list_filter = ('factory', 'is_active')
+    list_filter = (('factory', admin.RelatedOnlyFieldListFilter), 'is_active')
     search_fields = ('code', 'name', 'contact_name', 'email', 'factory__name')
     list_select_related = ('factory',)
     readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(CustomerOrder)
-class CustomerOrderAdmin(admin.ModelAdmin):
+class CustomerOrderAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(configuration_admin_allowed)
+    factory_lookup = 'factory_id'
     list_display = (
         'reference',
         'factory',
@@ -40,7 +47,13 @@ class CustomerOrderAdmin(admin.ModelAdmin):
         'status',
         'fulfilment_status',
     )
-    list_filter = ('factory', 'customer', 'status', 'fulfilment_status', 'order_date')
+    list_filter = (
+        ('factory', admin.RelatedOnlyFieldListFilter),
+        ('customer', admin.RelatedOnlyFieldListFilter),
+        'status',
+        'fulfilment_status',
+        'order_date',
+    )
     search_fields = (
         'reference',
         'customer__code',
@@ -54,17 +67,19 @@ class CustomerOrderAdmin(admin.ModelAdmin):
 
 
 @admin.register(CustomerOrderLine)
-class CustomerOrderLineAdmin(admin.ModelAdmin):
+class CustomerOrderLineAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(configuration_admin_allowed)
+    factory_lookup = 'customer_order__factory_id'
     list_display = (
         'customer_order',
         'finished_good',
         'quantity',
     )
     list_filter = (
-        'customer_order__factory',
-        'customer_order__customer',
+        ('customer_order__factory', admin.RelatedOnlyFieldListFilter),
+        ('customer_order__customer', admin.RelatedOnlyFieldListFilter),
         'customer_order__status',
-        'finished_good',
+        ('finished_good', admin.RelatedOnlyFieldListFilter),
     )
     search_fields = (
         'customer_order__reference',
@@ -82,7 +97,9 @@ class CustomerOrderLineAdmin(admin.ModelAdmin):
 
 
 @admin.register(DispatchAllocation)
-class DispatchAllocationAdmin(admin.ModelAdmin):
+class DispatchAllocationAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(configuration_admin_allowed)
+    factory_lookup = 'order_line__customer_order__factory_id'
     list_display = (
         'order_line',
         'dispatch',
@@ -90,11 +107,11 @@ class DispatchAllocationAdmin(admin.ModelAdmin):
         'created_at',
     )
     list_filter = (
-        'order_line__customer_order__factory',
-        'order_line__customer_order__customer',
+        ('order_line__customer_order__factory', admin.RelatedOnlyFieldListFilter),
+        ('order_line__customer_order__customer', admin.RelatedOnlyFieldListFilter),
         'order_line__customer_order__status',
-        'order_line__finished_good',
-        'dispatch__warehouse',
+        ('order_line__finished_good', admin.RelatedOnlyFieldListFilter),
+        ('dispatch__warehouse', admin.RelatedOnlyFieldListFilter),
     )
     search_fields = (
         'order_line__customer_order__reference',
@@ -116,7 +133,9 @@ class DispatchAllocationAdmin(admin.ModelAdmin):
 
 
 @admin.register(OrderReservation)
-class OrderReservationAdmin(admin.ModelAdmin):
+class OrderReservationAdmin(RoleBoundAdminMixin, admin.ModelAdmin):
+    access_check = staticmethod(configuration_admin_allowed)
+    factory_lookup = 'order_line__customer_order__factory_id'
     list_display = (
         'order_line',
         'warehouse',
@@ -124,10 +143,10 @@ class OrderReservationAdmin(admin.ModelAdmin):
         'created_at',
     )
     list_filter = (
-        'warehouse',
-        'order_line__finished_good',
-        'order_line__customer_order__customer',
-        'order_line__customer_order__factory',
+        ('warehouse', admin.RelatedOnlyFieldListFilter),
+        ('order_line__finished_good', admin.RelatedOnlyFieldListFilter),
+        ('order_line__customer_order__customer', admin.RelatedOnlyFieldListFilter),
+        ('order_line__customer_order__factory', admin.RelatedOnlyFieldListFilter),
         'order_line__customer_order__fulfilment_status',
     )
     search_fields = (

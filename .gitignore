@@ -28,3 +28,9 @@ releases/
 # Test / coverage artefacts
 .pytest_cache/
 .coverage
+
+# Production runtime output
+logs/
+staticfiles/
+var/
+backups/

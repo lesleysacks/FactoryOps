@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load ui_tags %}
+
+{% block title %}QC queue — FactoryOps{% endblock %}
+
+{% block content %}
+<div class="page-stack">
+    <div class="page-header">
+        <h1>QC queue</h1>
+        <p>{% if factory %}{{ factory.name }}{% else %}No factory assigned{% endif %}</p>
+    </div>
+
+    <div class="card">
+        <h2>Waiting for QC</h2>
+        {% if runs %}
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Run</th><th>Product</th><th>Stage</th><th></th></tr></thead>
+                <tbody>
+                {% for run in runs %}
+                    <tr>
+                        <td class="mono">{{ run.reference }}</td>
+                        <td>
+                            {% if run.product %}{{ run.product.name }}{% else %}—{% endif %}
+                            {% if run.variant %} · {{ run.variant.name }}{% endif %}
+                        </td>
+                        <td>
+                            {% status_tone run.stage as tone %}
+                            {% include 'partials/badge.html' with label=run.get_stage_display tone=tone %}
+                        </td>
+                        <td><a class="btn btn-primary" href="{% url 'dashboard:qc_verification' run.pk %}">Open</a></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="empty">No runs are waiting for QC.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

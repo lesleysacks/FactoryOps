@@ -6,10 +6,11 @@ Factory isolation is enforced in querysets, not by trusting posted IDs.
 
 from django.db.models import Sum
 
+from apps.accounts.access import machines_limited_to_assignment
 from apps.factories.models import ProductionLine
 from apps.machines.models import Machine
 from apps.materials.models import Material, MaterialBatch, StockRecord
-from apps.production.models import ProductionRun, ProductionRunStatus
+from apps.production.models import ProductionRun, ProductionRunStatus, ProductionStage
 
 
 def user_factory(user):
@@ -34,7 +35,7 @@ def active_machines_for(user):
     factory = user_factory(user)
     if factory is None:
         return Machine.objects.none()
-    return (
+    machines = (
         Machine.objects.filter(
             production_line__factory=factory,
             production_line__is_active=True,
@@ -43,6 +44,9 @@ def active_machines_for(user):
         .select_related('production_line')
         .order_by('production_line__name', 'code')
     )
+    if machines_limited_to_assignment(user):
+        machines = machines.filter(pk__in=user.assigned_machines.values('pk'))
+    return machines
 
 
 def open_stock_counts_for(user):
@@ -60,11 +64,22 @@ def production_runs_for(user):
     factory = user_factory(user)
     if factory is None:
         return ProductionRun.objects.none()
-    return (
+    runs = (
         ProductionRun.objects.filter(factory=factory)
-        .select_related('factory', 'production_line', 'machine', 'created_by')
+        .select_related(
+            'factory',
+            'production_line',
+            'machine',
+            'created_by',
+            'product',
+            'variant',
+            'packaging',
+        )
         .annotate(output_total=Sum('outputs__quantity'))
     )
+    if machines_limited_to_assignment(user):
+        runs = runs.filter(machine__in=user.assigned_machines.all())
+    return runs
 
 
 def active_production_runs_for(user):
@@ -82,6 +97,10 @@ def completed_production_runs_today_for(user, day):
 
 def active_machines_on_line_for(user, line):
     return active_machines_for(user).filter(production_line=line)
+
+
+def runs_in_stage_for(user, stage):
+    return production_runs_for(user).filter(stage=stage).order_by('-updated_at')
 
 
 def batches_for_material(user, material):

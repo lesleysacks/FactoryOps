@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.access import assert_can_record_inventory
 from apps.materials.models import MaterialConsumption
 from apps.production.models import ProductionRun, ProductionRunStatus
 
@@ -26,6 +27,7 @@ def _require_factory(user):
 
 
 def record_material_consumption(user, run_id, material, batch, quantity):
+    assert_can_record_inventory(user)
     factory = _require_factory(user)
     if material is None:
         raise ValidationError({'material': 'Select a material.'})
