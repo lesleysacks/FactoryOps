@@ -47,6 +47,11 @@ def navigation(request):
                 'label': 'Production',
                 'url': reverse('dashboard:supervisor'),
             })
+            items.append({
+                'id': 'output-reports',
+                'label': 'Output reports',
+                'url': reverse('reports:production_summary'),
+            })
         if user.role == Role.ADMIN:
             items.append({
                 'id': 'orders',
@@ -116,6 +121,8 @@ def navigation(request):
         'exception_queue': 'exceptions',
         'exception_detail': 'exceptions',
         'sheets_status': 'sheet-sync',
+        'production_summary': 'output-reports',
+        'qc_variance': 'output-reports',
     }.get(url_name, '')
 
     return {

@@ -1,0 +1,20 @@
+<form method="get" action="{{ request.path }}" class="card">
+    <h2>UTC date range</h2>
+    <p class="muted">Inclusive calendar dates. The maximum span is 93 days. Times are UTC.</p>
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    <div class="field">
+        <label for="start">Start date</label>
+        <input id="start" name="start" type="date" value="{{ start_value }}">
+    </div>
+    <div class="field">
+        <label for="end">End date</label>
+        <input id="end" name="end" type="date" value="{{ end_value }}">
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Apply range</button>
+        <a class="btn btn-ghost" href="{{ request.path }}?preset=day">Today</a>
+        <a class="btn btn-ghost" href="{{ request.path }}?preset=week">Rolling 7 UTC days</a>
+    </div>
+</form>

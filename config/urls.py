@@ -40,6 +40,7 @@ urlpatterns = [
     path('factories/', include('apps.factories.urls', namespace='factories')),
     path('reports/', include('apps.reports.urls', namespace='reports')),
     path('', include('apps.dashboard.urls', namespace='dashboard')),
+    path('reports/', include('apps.reports.urls', namespace='reports')),
 ]
 
 if settings.DEBUG:
