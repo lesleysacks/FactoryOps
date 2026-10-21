@@ -43,7 +43,7 @@ Commercial demand
 | `apps.shifts` | — | Stub |
 | `apps.handovers` | — | Stub |
 | `apps.downtime` | — | Stub |
-| `apps.reports` | — | Stub |
+| `apps.reports` | Optional Google Sheets delivery tracking | Off until configured |
 
 ## Calculation boundaries
 

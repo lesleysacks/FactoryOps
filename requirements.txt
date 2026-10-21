@@ -18,3 +18,27 @@ waitress==3.0.2
 
 # Static files for the production WSGI process
 whitenoise==6.11.0
+
+# Optional Google Sheets reporting. The integration stays off until configured.
+# Pinned for the Windows factory PC. No live credentials are required to install.
+cachetools==6.2.6
+certifi==2026.7.22
+charset-normalizer==3.5.2
+google-api-core==2.42.0
+google-api-python-client==2.184.0
+google-auth==2.41.1
+google-auth-httplib2==0.2.0
+googleapis-common-protos==1.75.5
+httplib2==0.32.0
+idna==3.20
+opentelemetry-api==1.45.1
+proto-plus==1.29.0
+protobuf==7.36.2
+pyasn1==0.6.4
+pyasn1-modules==0.4.2
+pyparsing==3.3.3
+requests==2.34.2
+rsa==4.9.1
+typing-extensions==4.16.0
+uritemplate==4.2.0
+urllib3==2.8.0

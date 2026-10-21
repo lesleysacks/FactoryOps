@@ -63,6 +63,11 @@ def navigation(request):
                 'label': 'Reports',
                 'url': reverse('dashboard:executive'),
             })
+            items.append({
+                'id': 'sheet-sync',
+                'label': 'Sheet sync',
+                'url': reverse('reports:sheets_status'),
+            })
         if user.role in QC_ROLES:
             items.append({
                 'id': 'qc',
@@ -115,6 +120,7 @@ def navigation(request):
         'qc_verification': 'qc',
         'exception_queue': 'exceptions',
         'exception_detail': 'exceptions',
+        'sheets_status': 'sheet-sync',
         'production_summary': 'output-reports',
         'qc_variance': 'output-reports',
     }.get(url_name, '')

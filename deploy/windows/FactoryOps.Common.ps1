@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 
 $script:FactoryOpsServerTask = 'FactoryOpsServer'
 $script:FactoryOpsBackupTask = 'FactoryOpsBackup'
+$script:FactoryOpsSheetsTask = 'FactoryOpsSheetsSync'
 $script:FactoryOpsFirewallName = 'FactoryOps LAN'
 
 function Get-FactoryOpsConfigPath {
