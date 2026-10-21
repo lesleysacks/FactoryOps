@@ -12,6 +12,7 @@ from django.urls import include, path
 from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET
 
+from config.views import health, protected_media
 from config.health import health
 from config.media_access import protected_media
 
@@ -32,6 +33,7 @@ def favicon(request):
 
 
 urlpatterns = [
+    path('health/', health, name='health'),
     path('favicon.ico', favicon, name='favicon'),
     path('health/', health, name='health'),
     path('media/<path:relative_path>', protected_media, name='protected_media'),
@@ -44,3 +46,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+else:
+    urlpatterns += [
+        path('media/<path:path>', protected_media, name='protected_media'),
+    ]

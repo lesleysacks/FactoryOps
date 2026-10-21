@@ -1,5 +1,7 @@
 # FactoryOps — Local Development & Setup Guide
 
+Development setup only. A factory PC must use the Windows production guide in the [README](../README.md#factory-pc-deployment-windows), not `runserver`.
+
 Companion docs: [README](../README.md) · [User guide](user-guide.md) · [Pilot playbook](pilot-playbook.md) · [Architecture](architecture.md)
 
 This guide must stay consistent with the README environment rules: env-driven `SECRET_KEY` / `ALLOWED_HOSTS`, no hardcoded LAN IPs, no `ALLOWED_HOSTS=*`.

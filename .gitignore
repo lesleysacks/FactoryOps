@@ -19,6 +19,12 @@ db.sqlite3
 # Media uploads (photos / evidence)
 media/
 
+# Production runtime artefacts (never commit plant data or logs)
+logs/
+backups/
+staticfiles/
+releases/
+
 # Test / coverage artefacts
 .pytest_cache/
 .coverage
